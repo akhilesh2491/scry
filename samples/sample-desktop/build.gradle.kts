@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":scry-network-ktor"))
     implementation(compose.desktop.currentOs)
     implementation(project(":scry-network-okhttp"))
+    implementation(project(":scry-perf"))
     implementation(libs.ktor.client.cio)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.swing)

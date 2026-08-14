@@ -17,6 +17,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Deliberately slow to draw and janky to scroll, for the perf plugin. -->
+        <activity
+            android:name=".PerfDemoActivity"
+            android:exported="false" />
+
         <!-- Proves the Java installation path compiles and runs. -->
         <activity
             android:name=".JavaSetupActivity"

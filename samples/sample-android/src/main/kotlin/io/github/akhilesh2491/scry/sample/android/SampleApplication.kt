@@ -12,6 +12,7 @@ import io.github.akhilesh2491.scry.crash.CrashPlugin
 import io.github.akhilesh2491.scry.database.DatabasePlugin
 import io.github.akhilesh2491.scry.logs.LogPlugin
 import io.github.akhilesh2491.scry.logs.ScryLog
+import io.github.akhilesh2491.scry.perf.PerfPlugin
 import io.github.akhilesh2491.scry.prefs.PreferencesPlugin
 import io.github.akhilesh2491.scry.core.Scry
 import io.github.akhilesh2491.scry.core.enableScryUi
@@ -41,6 +42,17 @@ class SampleApplication : Application() {
             plugin(DatabasePlugin { allowFileModeWrites(true) })
             plugin(CrashPlugin { anrThreshold = 3.seconds })
             plugin(LogPlugin { captureSystemLog = true })
+            // Tight budgets so the sample actually trips them — a debug build
+            // with Scry installed will not hit 800 ms cold on most devices, and
+            // seeing the badge go red is the point of the sample.
+            plugin(
+                PerfPlugin {
+                    budget {
+                        coldStartupMillis = 800
+                        screenLoadMillis = 300
+                    }
+                },
+            )
         }
 
         // Bridges core (no UI dependency) to the Compose shell.
@@ -50,7 +62,7 @@ class SampleApplication : Application() {
 
         seedMockRules()
 
-        ScryLog.i("SampleApp", "Scry installed with 5 plugins")
+        ScryLog.i("SampleApp", "Scry installed with 6 plugins")
         ScryLog.w("SampleApp", "This is a warning, for the level filter")
     }
 

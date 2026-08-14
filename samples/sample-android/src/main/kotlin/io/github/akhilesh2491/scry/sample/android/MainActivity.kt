@@ -1,5 +1,6 @@
 package io.github.akhilesh2491.scry.sample.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,8 +41,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import io.github.akhilesh2491.scry.core.Scry
 import io.github.akhilesh2491.scry.network.ktor.ScryKtor
+import io.github.akhilesh2491.scry.perf.ScryTrace
 import io.github.akhilesh2491.scry.network.okhttp.ScryInterceptor
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -110,6 +113,7 @@ private fun SampleTheme(content: @Composable () -> Unit) {
 @Composable
 private fun SampleScreen(ktorClient: HttpClient, okHttpClient: OkHttpClient) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var status by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
@@ -177,6 +181,24 @@ private fun SampleScreen(ktorClient: HttpClient, okHttpClient: OkHttpClient) {
                             .execute().use { it.body?.string().orEmpty() }
                     }
                 }
+            }
+
+            SectionLabel("Performance")
+            ActionCard(
+                "Open the slow screen",
+                "Blocks 700ms before its first frame, then janks on every scroll",
+                tone = Tone.WARNING,
+            ) {
+                context.startActivity(Intent(context, PerfDemoActivity::class.java))
+            }
+            ActionCard(
+                "Time a block of work",
+                "Records a span you can see under Performance → Spans",
+            ) {
+                val digits = ScryTrace.measure("sample.primes") {
+                    (2..60_000).count { n -> (2..n / 2).none { n % it == 0 } }
+                }
+                status = "Counted $digits primes"
             }
 
             SectionLabel("Failures")

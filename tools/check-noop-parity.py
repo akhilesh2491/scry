@@ -47,6 +47,9 @@ INTERNAL_NAMES = {
     "LogScreen", "startSystemLogCapture", "parseLogcatLine", "attach",
     "MockScreen", "globToRegex", "TrafficTab", "mockedCall", "sleepQuietly",
     "toOkHttpResponse", "pillLabel", "pillColour",
+    "PerfScreen", "FrameRing", "StartupTracker", "monotonicMillis", "processStartMillis",
+    "perfPlatform", "startPerfMonitor", "roundTo", "epochMillisToIso8601",
+    "BudgetBar", "WaterfallBar", "FrameSparkline", "StatCell",
 }
 
 

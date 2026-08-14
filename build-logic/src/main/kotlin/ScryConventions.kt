@@ -47,7 +47,17 @@ internal fun Project.configureScryLibrary(withIos: Boolean) {
                 namespace = "io.github.akhilesh2491." + moduleName.replace('-', '.')
                 compileSdk = version("androidCompileSdk").toInt()
                 minSdk = version("androidMinSdk").toInt()
-                withHostTestBuilder {}.configure { isIncludeAndroidResources = true }
+                withHostTestBuilder {}.configure {
+                    isIncludeAndroidResources = true
+                    // Unmocked android.* methods return a default instead of
+                    // throwing. Needed because `scry-perf` reads
+                    // `SystemClock.uptimeMillis()`, which the host JVM has no
+                    // implementation for — and a common test that only asserts on
+                    // classification should not need a device to run. The host
+                    // test suite deliberately exercises pure logic, so a default
+                    // return is never the thing under test.
+                    isReturnDefaultValues = true
+                }
             }
 
         jvm("desktop")

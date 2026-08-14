@@ -59,6 +59,7 @@ val realModules = listOf(
     ":scry-database",
     ":scry-crash",
     ":scry-logs",
+    ":scry-perf",
     ":scry-network-ktor",
     ":scry-network-okhttp",
 )

@@ -28,6 +28,7 @@ import io.github.akhilesh2491.scry.logs.LogPlugin
 import io.github.akhilesh2491.scry.logs.ScryLog
 import io.github.akhilesh2491.scry.network.NetworkPlugin
 import io.github.akhilesh2491.scry.network.ktor.ScryKtor
+import io.github.akhilesh2491.scry.perf.PerfPlugin
 import io.github.akhilesh2491.scry.prefs.PreferencesPlugin
 import io.github.akhilesh2491.scry.ui.enableScryUi
 import io.ktor.client.HttpClient
@@ -63,6 +64,7 @@ public fun MainViewController(): UIViewController {
         plugin(DatabasePlugin { allowFileModeWrites(true) })
         plugin(CrashPlugin())
         plugin(LogPlugin())
+        plugin(PerfPlugin())
     }
     enableScryUi()
     ScryLog.i("SampleApp", "Scry installed on iOS")

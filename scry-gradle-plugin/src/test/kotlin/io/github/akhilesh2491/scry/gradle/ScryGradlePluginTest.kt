@@ -67,7 +67,7 @@ class ScryGradlePluginTest {
     fun `adds the requested modules`() {
         val project = project()
         project.extensions.getByType(ScryExtension::class.java).modules.set(
-            setOf(ScryModule.PREFS, ScryModule.DATABASE, ScryModule.CRASH),
+            setOf(ScryModule.PREFS, ScryModule.DATABASE, ScryModule.CRASH, ScryModule.PERF),
         )
         project.evaluate()
 
@@ -75,6 +75,19 @@ class ScryGradlePluginTest {
         assertTrue(debug.any { it.contains("scry-prefs") })
         assertTrue(debug.any { it.contains("scry-database") })
         assertTrue(debug.any { it.contains("scry-crash") })
+        assertTrue(debug.any { it.contains("scry-perf") })
+    }
+
+    @Test
+    fun `the performance plugin is opt-in`() {
+        val project = project()
+        project.evaluate()
+
+        // It registers a frame callback for the life of the process; adding that
+        // to every project by default would be a surprise.
+        assertFalse(
+            project.dependencyNotations("debugImplementation").any { it.contains("scry-perf") },
+        )
     }
 
     @Test

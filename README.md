@@ -70,6 +70,7 @@ that the API is expressive enough for anyone else's plugin — they use exactly 
 | `scry-database` | SQLite browser and editor — schema, rows, cell editing, SQL console |
 | `scry-crash` | Crash + ANR capture with cross-plugin context, and report sharing |
 | `scry-logs` | In-app logger, Android logcat capture, level/tag filtering |
+| `scry-perf` | Startup, screen-load and frame timing with budgets, sessions and JSON/CSV export |
 | `scry-no-op` | API-identical inert replacement for release builds, parity-gated in CI |
 | `scry-gradle-plugin` | Wires debug/release variants and fails the build if Scry reaches release |
 
@@ -133,6 +134,7 @@ scry-prefs          = { module = "io.github.akhilesh2491.scry:scry-prefs", versi
 scry-database       = { module = "io.github.akhilesh2491.scry:scry-database", version.ref = "scry" }
 scry-crash          = { module = "io.github.akhilesh2491.scry:scry-crash", version.ref = "scry" }
 scry-logs           = { module = "io.github.akhilesh2491.scry:scry-logs", version.ref = "scry" }
+scry-perf           = { module = "io.github.akhilesh2491.scry:scry-perf", version.ref = "scry" }
 scry-no-op          = { module = "io.github.akhilesh2491.scry:scry-no-op", version.ref = "scry" }
 ```
 
@@ -501,6 +503,64 @@ Two defaults worth knowing: entries are capped in memory (2000) and trimmed on w
 arrive far faster than anything else Scry captures; and they are **not** persisted unless you set
 `persist = true`, which trades store size for surviving process death.
 
+### Performance
+
+```kotlin
+plugin(PerfPlugin {
+    budget {
+        coldStartupMillis = 800
+        slowFramePercent = 5.0
+    }
+})
+
+ScryTrace.measure("checkout") { placeOrder(cart) }
+```
+
+Cold/warm startup broken into phases, per-screen time-to-initial-display, frame timing with
+percentiles and slow/frozen counts, and manual spans — all on-device, in a debug build, while you
+use the app. Numbers are checked against budgets you set; breaking one badges the plugin red,
+publishes a `PerfViolationEvent`, and calls your `onViolation` hook if you registered one.
+
+Each launch is kept as a **session**, so the Sessions tab compares this run against the last 20.
+Recent measurements are attached to crash reports, and the whole history exports as JSON or CSV.
+
+Activities and Fragments are instrumented automatically. Fragments need no dependency from you —
+`androidx.fragment` is `compileOnly` here and the hook is skipped if your app does not have it.
+For anything else — a Compose screen, a custom navigator, a UIKit view controller — one call is
+enough:
+
+```kotlin
+LaunchedEffect(Unit) { ScryTrace.screenEntered("Checkout") }
+ScryTrace.reportFullyDrawn("Checkout", millisSinceEntered)   // optional TTFD
+```
+
+`ScryTrace` is deliberately not a `@Composable`: everything an app calls in shared code needs an
+inert mirror in `scry-no-op`, and a `@Composable` mirror would mean shipping Compose in release —
+the one thing that artifact exists to prevent.
+
+#### What each target actually measures
+
+|  | Startup | Screen load | Frames |
+|---|---|---|---|
+| **Android API 24+** | ✅ true process start, 3 phases | ✅ automatic (Activity, Fragment) | ✅ `FrameMetrics`, real refresh rate |
+| **Android API 23** | ⚠️ from Scry's install, marked truncated | ✅ automatic | ❌ see below |
+| **iOS** | ⚠️ from framework load, marked truncated | ✅ via `screenEntered` | ⚠️ `CADisplayLink` — main-thread stalls only |
+| **JVM desktop** | ⚠️ JVM start, marked truncated | ✅ via `screenDisplayed` | ❌ see below |
+
+The gaps are stated rather than papered over, and the plugin's own screen repeats them in place:
+
+- **API 23 has no `FrameMetrics`.** The alternative is re-posting a `Choreographer` callback every
+  frame, which keeps the Choreographer awake and so *produces* the frames it claims to observe.
+- **Desktop has no frame capture** for the same reason: a perpetual `withFrameNanos` loop
+  invalidates every frame and would measure Scry rather than the app.
+- **iOS `CADisplayLink`** fires from the main run loop, so a long interval proves the main thread
+  was blocked — which is what iOS jank usually is. It cannot see the GPU.
+- **iOS and desktop startup** begin after the expensive part of launch (dyld and ObjC registration;
+  JVM class loading), so both are marked truncated.
+
+One thing to keep in mind about every number here: this is a debug build, with Scry installed and
+no R8. Use it to compare your own runs against each other, not as a figure to quote against release.
+
 ---
 
 ## Safety
@@ -528,7 +588,7 @@ serialization, no handlers, no watchdog thread. Swapping it in cannot break comp
 promise is **machine-checked**:
 
 ```bash
-./gradlew :scry-no-op:checkNoOpParity   # 479 signatures across 7 modules
+./gradlew :scry-no-op:checkNoOpParity   # 975 signatures across 9 modules
 ```
 
 The gate compares public signatures of the real desktop jars against the no-op and fails on
@@ -557,8 +617,8 @@ Requires **JDK 17** and the Android SDK (compileSdk 37, minSdk 23).
 ./gradlew :samples:sample-android:assembleRelease # proves the no-op swap compiles
 ```
 
-Current state: **12 modules, 379 tests, 0 failures** — 123 on the JVM desktop, 129 on the Android
-host, 115 on the iOS simulator, 12 for the Gradle plugin.
+Current state: **13 modules, 665 tests, 0 failures** — 218 on the JVM desktop, 224 on the Android
+host, 210 on the iOS simulator, 13 for the Gradle plugin.
 
 ### Repository layout
 
@@ -571,6 +631,8 @@ scry-network-okhttp/    OkHttp adapter
 scry-prefs/             preferences inspector
 scry-database/          SQLite inspector
 scry-crash/             crash + ANR capture
+scry-logs/              in-app logger + logcat capture
+scry-perf/              startup, screen-load and frame timing
 scry-no-op/             inert mirror of all of the above
 scry-gradle-plugin/     variant wiring + release-leak check (its own included build)
 build-logic/            convention plugins (also an included build)
@@ -616,8 +678,9 @@ val plugin = MyPlugin().apply { onInstall(ScryTesting.scope()) }
 
 ## Roadmap
 
-**Done:** network (Ktor + OkHttp), preferences, database, crashes/ANRs, HAR + cURL export, no-op +
-parity gate, Gradle plugin, Android + desktop.
+**Done:** network (Ktor + OkHttp), preferences, database, crashes/ANRs, logs, performance
+(startup / screen load / frames), HAR + cURL export, no-op + parity gate, Gradle plugin,
+Android + desktop + iOS.
 
 **Published:** `0.1.0` on Maven Central, signed, across Android, JVM desktop and iOS · the Gradle
 plugin on the [Gradle Plugin Portal](https://plugins.gradle.org/plugin/io.github.akhilesh2491.scry).

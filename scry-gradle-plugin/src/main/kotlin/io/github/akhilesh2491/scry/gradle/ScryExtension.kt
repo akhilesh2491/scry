@@ -12,6 +12,7 @@ public enum class ScryModule(internal val artifact: String) {
     PREFS("scry-prefs"),
     DATABASE("scry-database"),
     CRASH("scry-crash"),
+    PERF("scry-perf"),
 }
 
 /**

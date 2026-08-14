@@ -25,6 +25,7 @@ import io.github.akhilesh2491.scry.core.PlatformContext
 import io.github.akhilesh2491.scry.core.Scry
 import io.github.akhilesh2491.scry.network.NetworkPlugin
 import io.github.akhilesh2491.scry.network.ktor.ScryKtor
+import io.github.akhilesh2491.scry.perf.PerfPlugin
 import io.github.akhilesh2491.scry.ui.ScryDesktopWindow
 import io.github.akhilesh2491.scry.ui.onScryHotkey
 import io.ktor.client.HttpClient
@@ -40,6 +41,7 @@ import kotlinx.coroutines.launch
 
 private val scry = Scry.install(PlatformContext(applicationId = "scry-sample-desktop")) {
     plugin(NetworkPlugin { maxBodyBytes = 128 * 1024 })
+    plugin(PerfPlugin())
 }
 
 private val httpClient = HttpClient(CIO) {

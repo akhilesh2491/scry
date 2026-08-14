@@ -18,6 +18,11 @@ serialization = "1.11.0"
 ktor = "3.5.2"
 okhttp = "5.4.0"
 androidxSqlite = "2.7.0"
+# compileOnly in scry-perf only, never published as a dependency. Held at a low
+# stable version deliberately: the fragment APIs Scry hooks have existed since
+# 1.0, and compiling against a newer one risks reaching for something a consumer
+# on an older fragment release does not have.
+androidxFragment = "1.8.9"
 
 # Android sample only
 androidxActivityCompose = "1.13.0"
@@ -63,6 +68,7 @@ androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivityCompose" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCoreKtx" }
+androidx-fragment = { module = "androidx.fragment:fragment", version.ref = "androidxFragment" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidxLifecycle" }
 
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
