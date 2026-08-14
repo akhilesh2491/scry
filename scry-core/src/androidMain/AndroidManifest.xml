@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          Authority is derived from the host app id so it cannot collide with a
+          FileProvider the app already declares. exported=false with
+          grantUriPermissions: only the app the user picks in the share sheet
+          gets read access, and only to the single report file.
+        -->
+        <provider
+            android:name="io.github.akhilesh2491.scry.core.ScryFileProvider"
+            android:authorities="${applicationId}.scry.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+
+</manifest>

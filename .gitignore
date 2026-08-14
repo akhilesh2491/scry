@@ -1,0 +1,22 @@
+.gradle/
+build/
+!build-logic/
+build-logic/build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.kotlin/
+.cxx/
+out/
+
+# Included builds
+scry-gradle-plugin/.gradle/
+scry-gradle-plugin/build/
+
+# Xcode
+samples/sample-ios/iosApp/build/
+samples/sample-ios/iosApp/*.xcodeproj/xcuserdata/
+xcuserdata/
+DerivedData/

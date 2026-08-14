@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          Declared by the library so integrating apps register nothing.
+          exported=false: this exposes captured request bodies and, later, the
+          app's preferences and databases. No other app may launch it.
+        -->
+        <activity
+            android:name="io.github.akhilesh2491.scry.ui.ScryActivity"
+            android:exported="false"
+            android:label="Scry"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+    </application>
+
+</manifest>

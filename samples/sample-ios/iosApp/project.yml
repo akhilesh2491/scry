@@ -1,0 +1,36 @@
+name: ScrySample
+options:
+  bundleIdPrefix: io.github.akhilesh2491.scry
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  ScrySample:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Scry Sample
+        # Compose Multiplatform refuses to start without this — it caps the
+        # frame rate at 60Hz on ProMotion devices otherwise. Any app hosting
+        # Compose on iOS needs it, Scry or not.
+        CADisableMinimumFrameDurationOnPhone: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.akhilesh2491.scry.sample.ios
+        # The Kotlin framework is produced by Gradle, not by Xcode.
+        FRAMEWORK_SEARCH_PATHS:
+          - $(inherited)
+          - $(SRCROOT)/../../../samples/sample-ios/build/bin/iosSimulatorArm64/debugFramework
+        OTHER_LDFLAGS:
+          - $(inherited)
+          - -framework
+          - SampleShared
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
