@@ -40,8 +40,10 @@ that the API is expressive enough for anyone else's plugin — they use exactly 
 </p>
 <p align="center">
   <img src="docs/screenshots/mocks.png" width="24%" alt="Mocking, throttling and offline controls" />
-<p align="center">
+  <img src="docs/screenshots/performance.png" width="24%" alt="Startup phases, screen load and frame timing checked against budgets" />
   <img src="docs/screenshots/logs.png" width="24%" alt="Log viewer with level filtering" />
+</p>
+<p align="center">
   <img src="docs/screenshots/preferences.png" width="24%" alt="Typed preferences editor" />
   <img src="docs/screenshots/database.png" width="24%" alt="Database table browser" />
   <img src="docs/screenshots/crash.png" width="24%" alt="Crash report with network context attached" />
@@ -518,8 +520,9 @@ ScryTrace.measure("checkout") { placeOrder(cart) }
 
 Cold/warm startup broken into phases, per-screen time-to-initial-display, frame timing with
 percentiles and slow/frozen counts, and manual spans — all on-device, in a debug build, while you
-use the app. Numbers are checked against budgets you set; breaking one badges the plugin red,
-publishes a `PerfViolationEvent`, and calls your `onViolation` hook if you registered one.
+use the app. Numbers are checked against budgets you set; breaking one counts on the plugin's badge,
+lists it in red under **Over budget**, publishes a `PerfViolationEvent`, and calls your `onViolation`
+hook if you registered one.
 
 Each launch is kept as a **session**, so the Sessions tab compares this run against the last 20.
 Recent measurements are attached to crash reports, and the whole history exports as JSON or CSV.
