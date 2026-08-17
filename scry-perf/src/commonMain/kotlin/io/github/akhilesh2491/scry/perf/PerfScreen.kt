@@ -1,72 +1,106 @@
 package io.github.akhilesh2491.scry.perf
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.akhilesh2491.scry.core.Scry
-import io.github.akhilesh2491.scry.core.shareScryFile
-import io.github.akhilesh2491.scry.ui.ScryDivider
+import io.github.akhilesh2491.scry.ui.ScryCard
+import io.github.akhilesh2491.scry.ui.ScryDestructiveAction
 import io.github.akhilesh2491.scry.ui.ScryEmptyState
 import io.github.akhilesh2491.scry.ui.ScryKeyValue
 import io.github.akhilesh2491.scry.ui.ScryPill
-import io.github.akhilesh2491.scry.ui.ScrySectionHeader
+import io.github.akhilesh2491.scry.ui.ScryScreenBar
+import io.github.akhilesh2491.scry.ui.ScryShareAction
+import io.github.akhilesh2491.scry.ui.ScryShareFormat
+import io.github.akhilesh2491.scry.ui.ScryStat
+import io.github.akhilesh2491.scry.ui.ScryStatGrid
 import io.github.akhilesh2491.scry.ui.scryPalette
 import io.github.akhilesh2491.scry.ui.scrySpacing
 
 /** How many recent frames the sparkline shows. */
 private const val SPARKLINE_FRAMES = 120
 
+/**
+ * One sub-section of the current launch.
+ *
+ * The screen used to render all of these into a single scroll. Everything was
+ * present and nothing was findable: five section headers, four charts and two
+ * dozen numbers competing for the same column. Splitting them means each tab
+ * answers one question.
+ */
+private enum class PerfSection(val label: String) {
+    OVERVIEW("Overview"),
+    STARTUP("Startup"),
+    SCREENS("Screens"),
+    FRAMES("Frames"),
+    SPANS("Spans"),
+}
+
 @Composable
 internal fun PerfScreen(plugin: PerfPlugin) {
     val session by plugin.session.collectAsState()
     val previous by plugin.previousSessions.collectAsState()
     val framesUnsupportedReason by plugin.framesUnsupportedReason.collectAsState()
-    var tab by remember { mutableStateOf(0) }
+    var tab by remember { mutableIntStateOf(0) }
 
     Column(Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TabRow(selectedTabIndex = tab, modifier = Modifier.weight(1f)) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("This launch") })
-                Tab(
-                    selected = tab == 1,
-                    onClick = { tab = 1 },
-                    text = { Text(if (previous.isEmpty()) "Sessions" else "Sessions ${previous.size}") },
+        ScryScreenBar(
+            // The device and build these numbers came from, not a restatement of
+            // the tab below — a startup time means nothing without them.
+            title = session.deviceModel ?: session.platform,
+            subtitle = session.appVersion,
+            actions = {
+                val all = listOf(session) + previous
+                ScryShareAction(
+                    // Both formats, because they answer different questions: JSON
+                    // for a diff or a script, CSV for the spreadsheet next to last
+                    // week's run.
+                    formats = listOf(
+                        ScryShareFormat("Export as JSON", "scry-perf-${session.id}.json") {
+                            all.toJson()
+                        },
+                        ScryShareFormat("Export as CSV", "scry-perf-${session.id}.csv") {
+                            all.toCsv()
+                        },
+                    ),
+                    description = "Share performance data",
                 )
-            }
-            IconButton(
-                onClick = {
-                    Scry.instance?.let { instance ->
-                        val all = listOf(session) + previous
-                        shareScryFile(
-                            context = instance.platformContext,
-                            fileName = "scry-perf-${session.id}.json",
-                            text = all.toJson(),
-                        )
-                    }
+                ScryDestructiveAction(
+                    title = "Clear performance history?",
+                    message = "Discards this launch's measurements and the " +
+                        "${previous.size} earlier launches kept for comparison.",
+                    confirmLabel = "Clear",
+                    description = "Clear performance history",
+                    onConfirm = { plugin.onClear() },
+                )
+            },
+        )
+
+        TabRow(selectedTabIndex = tab) {
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("This launch") })
+            Tab(
+                selected = tab == 1,
+                onClick = { tab = 1 },
+                text = {
+                    Text(if (previous.isEmpty()) "Sessions" else "Sessions ${previous.size}")
                 },
-            ) { Icon(Icons.Default.Share, contentDescription = "Share performance data") }
+            )
         }
 
         when (tab) {
@@ -82,13 +116,18 @@ private fun CurrentSessionTab(
     session: PerfSession,
     framesUnsupportedReason: String?,
 ) {
-    val budget = plugin.config.budget
-    val hasAnything = session.startup != null ||
-        session.screens.isNotEmpty() ||
-        session.frames.isNotEmpty() ||
-        session.spans.isNotEmpty()
+    // Only offer sections that hold something. A tab that always leads to "no
+    // data" trains people to stop opening tabs.
+    val sections = buildList {
+        add(PerfSection.OVERVIEW)
+        if (session.startup != null || session.hotStarts.isNotEmpty()) add(PerfSection.STARTUP)
+        if (session.screens.isNotEmpty()) add(PerfSection.SCREENS)
+        if (session.frames.isNotEmpty() || framesUnsupportedReason != null) add(PerfSection.FRAMES)
+        if (session.spans.isNotEmpty()) add(PerfSection.SPANS)
+    }
 
-    if (!hasAnything) {
+    // Overview is always present, so a lone section means nothing was measured.
+    if (sections.size == 1) {
         ScryEmptyState(
             title = "Nothing measured yet.",
             hint = "Navigate around the app, or wrap work in ScryTrace.measure(\"name\") { }",
@@ -96,94 +135,165 @@ private fun CurrentSessionTab(
         return
     }
 
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = scrySpacing.md)) {
-        session.violations.takeIf { it.isNotEmpty() }?.let { violations ->
-            item { ScrySectionHeader("Over budget") }
-            items(violations) { violation ->
-                Text(
-                    text = violation.format(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = scryPalette.danger,
-                    modifier = Modifier.padding(vertical = 2.dp),
+    var section by remember(sections.size) { mutableIntStateOf(0) }
+    val current = sections.getOrElse(section) { PerfSection.OVERVIEW }
+
+    if (sections.size > 1) {
+        ScrollableTabRow(selectedTabIndex = section, edgePadding = scrySpacing.md) {
+            sections.forEachIndexed { index, entry ->
+                Tab(
+                    selected = section == index,
+                    onClick = { section = index },
+                    text = { Text(entry.label) },
                 )
             }
         }
+    }
 
-        session.startup?.let { startup ->
-            item { ScrySectionHeader("Startup") }
-            item { StartupCard(startup, budget) }
+    val budget = plugin.config.budget
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal = scrySpacing.md),
+        contentPadding = PaddingValues(vertical = scrySpacing.sm),
+    ) {
+        when (current) {
+            PerfSection.OVERVIEW -> overviewSection(session)
+            PerfSection.STARTUP -> startupSection(session, budget)
+            PerfSection.SCREENS -> screensSection(session, budget)
+            PerfSection.FRAMES -> framesSection(plugin, session, budget, framesUnsupportedReason)
+            PerfSection.SPANS -> spansSection(session)
         }
+    }
+}
 
-        if (session.hotStarts.isNotEmpty()) {
-            item { ScrySectionHeader("Returns to foreground") }
-            items(session.hotStarts.asReversed()) { hot ->
-                ScryKeyValue(
-                    label = epochMillisToIso8601(hot.timestampMillis),
-                    value = "${hot.totalMillis} ms",
+/** The numbers worth seeing before deciding which section to open. */
+private fun LazyListScope.overviewSection(session: PerfSession) {
+    if (session.violations.isNotEmpty()) {
+        item {
+            ScryCard(title = "Over budget") {
+                session.violations.forEach { violation ->
+                    Text(
+                        text = violation.format(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scryPalette.danger,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
+                }
+            }
+        }
+    }
+
+    item {
+        ScryCard(title = "This launch") {
+            ScryStatGrid {
+                ScryStat(
+                    label = "startup",
+                    value = session.startup?.let { "${it.totalMillis} ms" } ?: "—",
                 )
+                ScryStat(
+                    label = "jank",
+                    value = "${session.overallJankPercent.roundTo(1)}%",
+                    color = if (session.overallJankPercent > 0) scryPalette.warning else null,
+                )
+                ScryStat(label = "screens", value = session.screens.size.toString())
+                ScryStat(
+                    label = "frames",
+                    value = session.frames.sumOf { it.frameCount }.toString(),
+                )
+                ScryStat(
+                    label = "frozen",
+                    value = session.frames.sumOf { it.frozenFrames }.toString(),
+                    color = if (session.frames.any { it.frozenFrames > 0 }) scryPalette.danger else null,
+                )
+                ScryStat(label = "spans", value = session.spans.size.toString())
             }
         }
+    }
 
-        if (session.screens.isNotEmpty()) {
-            item { ScrySectionHeader("Screen load") }
-            items(session.screens.asReversed()) { screen ->
-                ScreenRow(screen, budget)
-                ScryDivider()
+    item {
+        ScryCard(title = "Device") {
+            ScryKeyValue("Platform", session.platform)
+            session.deviceModel?.let { ScryKeyValue("Device", it) }
+            session.appVersion?.let { ScryKeyValue("App version", it) }
+            ScryKeyValue("Started", epochMillisToIso8601(session.startedAtMillis))
+        }
+    }
+}
+
+private fun LazyListScope.startupSection(
+    session: PerfSession,
+    budget: PerfBudget,
+) {
+    session.startup?.let { startup ->
+        item { StartupCard(startup, budget) }
+    }
+
+    if (session.hotStarts.isNotEmpty()) {
+        item {
+            ScryCard(
+                title = "Returns to foreground",
+                subtitle = "${session.hotStarts.size} recorded",
+            ) {
+                session.hotStarts.asReversed().forEach { hot ->
+                    ScryKeyValue(
+                        label = epochMillisToIso8601(hot.timestampMillis),
+                        value = "${hot.totalMillis} ms",
+                    )
+                }
             }
         }
+    }
+}
 
-        item { ScrySectionHeader("Frames") }
-        if (framesUnsupportedReason != null) {
-            item {
+private fun LazyListScope.screensSection(
+    session: PerfSession,
+    budget: PerfBudget,
+) {
+    items(session.screens.asReversed()) { screen -> ScreenCard(screen, budget) }
+}
+
+private fun LazyListScope.framesSection(
+    plugin: PerfPlugin,
+    session: PerfSession,
+    budget: PerfBudget,
+    unsupportedReason: String?,
+) {
+    if (unsupportedReason != null) {
+        item {
+            ScryCard(title = "Frame timing unavailable") {
                 Text(
-                    text = "$framesUnsupportedReason\nStartup, screen loads and spans still work.",
+                    text = "$unsupportedReason\nStartup, screen loads and spans still work.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scryPalette.muted,
-                    modifier = Modifier.padding(vertical = scrySpacing.sm),
                 )
-            }
-        } else if (session.frames.isEmpty()) {
-            item {
-                Text(
-                    text = "No frames drawn yet.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = scryPalette.muted,
-                    modifier = Modifier.padding(vertical = scrySpacing.sm),
-                )
-            }
-        } else {
-            items(session.frames) { stats ->
-                FrameCard(stats, plugin.recentFrames(stats.screen, SPARKLINE_FRAMES), budget)
-                ScryDivider()
             }
         }
+        return
+    }
 
-        if (session.spans.isNotEmpty()) {
-            item { ScrySectionHeader("Spans") }
-            items(session.spans.asReversed()) { span ->
+    items(session.frames) { stats ->
+        FrameCard(stats, plugin.recentFrames(stats.screen, SPARKLINE_FRAMES), budget)
+    }
+}
+
+private fun LazyListScope.spansSection(session: PerfSession) {
+    item {
+        ScryCard(title = "Spans", subtitle = "${session.spans.size} measured") {
+            session.spans.asReversed().forEach { span ->
                 ScryKeyValue(
                     label = "  ".repeat(span.depth) + span.name,
                     value = "${span.durationMillis} ms",
                 )
             }
         }
-
-        item {
-            ScrySectionHeader("Device")
-            ScryKeyValue("Platform", session.platform)
-            session.deviceModel?.let { ScryKeyValue("Device", it) }
-            session.appVersion?.let { ScryKeyValue("App version", it) }
-        }
     }
 }
 
 @Composable
 private fun StartupCard(startup: StartupMetric, budget: PerfBudget) {
-    Column(Modifier.fillMaxWidth().padding(vertical = scrySpacing.sm)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(scrySpacing.sm),
-        ) {
+    ScryCard(
+        title = "${startup.totalMillis} ms",
+        subtitle = if (startup.truncated) "measured from Scry's earliest visible point" else null,
+        trailing = {
             ScryPill(
                 text = startup.kind.name,
                 color = when (startup.kind) {
@@ -192,41 +302,41 @@ private fun StartupCard(startup: StartupMetric, budget: PerfBudget) {
                     StartupKind.HOT -> scryPalette.success
                 },
             )
-            Text(
-                text = "${startup.totalMillis} ms",
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
-
+        },
+    ) {
         BudgetBar(
             value = startup.totalMillis.toDouble(),
-            limit = budget.coldStartupMillis?.toDouble()?.takeIf { startup.kind == StartupKind.COLD },
-            modifier = Modifier.padding(vertical = scrySpacing.xs),
+            limit = budget.coldStartupMillis?.toDouble()
+                ?.takeIf { startup.kind == StartupKind.COLD },
+            modifier = Modifier.padding(bottom = scrySpacing.md),
         )
 
         WaterfallBar(startup.phases, startup.totalMillis)
-        startup.phases.forEach {
-            ScryKeyValue(it.name, "${it.durationMillis} ms")
+        Column(Modifier.padding(top = scrySpacing.sm)) {
+            startup.phases.forEach { ScryKeyValue(it.name, "${it.durationMillis} ms") }
         }
 
         if (startup.truncated) {
             Text(
-                text = "Measured from the earliest point Scry can observe — " +
-                    "this excludes some of the real launch cost.",
+                text = "This excludes some of the real launch cost — Scry cannot observe the " +
+                    "process before it is installed.",
                 style = MaterialTheme.typography.labelSmall,
                 color = scryPalette.muted,
+                modifier = Modifier.padding(top = scrySpacing.xs),
             )
         }
     }
 }
 
 @Composable
-private fun ScreenRow(metric: ScreenLoadMetric, budget: PerfBudget) {
-    Column(Modifier.fillMaxWidth().padding(vertical = scrySpacing.xs)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(metric.screen, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            StatCell("TTID", "${metric.ttidMillis} ms")
-            metric.ttfdMillis?.let { StatCell("TTFD", "$it ms") }
+private fun ScreenCard(metric: ScreenLoadMetric, budget: PerfBudget) {
+    ScryCard(
+        title = metric.screen,
+        subtitle = metric.kind.name.lowercase(),
+    ) {
+        ScryStatGrid(Modifier.padding(bottom = scrySpacing.sm)) {
+            ScryStat(label = "TTID", value = "${metric.ttidMillis} ms")
+            metric.ttfdMillis?.let { ScryStat(label = "TTFD", value = "$it ms") }
         }
         BudgetBar(
             value = (metric.ttfdMillis ?: metric.ttidMillis).toDouble(),
@@ -237,33 +347,29 @@ private fun ScreenRow(metric: ScreenLoadMetric, budget: PerfBudget) {
 
 @Composable
 private fun FrameCard(stats: FrameStats, recent: List<Double>, budget: PerfBudget) {
-    Column(Modifier.fillMaxWidth().padding(vertical = scrySpacing.sm)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stats.screen, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Text(
-                text = "${stats.frameCount} frames @ ${stats.budgetMillis.roundTo(1)} ms budget",
-                style = MaterialTheme.typography.labelSmall,
-                color = scryPalette.muted,
-            )
-        }
+    ScryCard(
+        title = stats.screen,
+        subtitle = "${stats.frameCount} frames · ${stats.budgetMillis.roundTo(1)} ms budget",
+    ) {
+        FrameSparkline(
+            durationsMillis = recent,
+            budgetMillis = stats.budgetMillis,
+            modifier = Modifier.padding(bottom = scrySpacing.md),
+        )
 
-        FrameSparkline(recent, stats.budgetMillis, Modifier.padding(vertical = scrySpacing.xs))
-
-        Row(Modifier.fillMaxWidth()) {
-            StatCell("p50", stats.p50Millis.roundTo(1))
-            StatCell("p90", stats.p90Millis.roundTo(1))
-            StatCell("p99", stats.p99Millis.roundTo(1))
-            StatCell("worst", stats.worstMillis.roundTo(1))
-        }
-        Row(Modifier.fillMaxWidth()) {
-            StatCell(
+        ScryStatGrid {
+            ScryStat(label = "p50", value = "${stats.p50Millis.roundTo(1)} ms")
+            ScryStat(label = "p90", value = "${stats.p90Millis.roundTo(1)} ms")
+            ScryStat(label = "p99", value = "${stats.p99Millis.roundTo(1)} ms")
+            ScryStat(label = "worst", value = "${stats.worstMillis.roundTo(1)} ms")
+            ScryStat(
                 label = "slow",
                 value = "${stats.slowFrames} (${stats.jankPercent.roundTo(1)}%)",
                 color = budget.slowFramePercent
                     ?.takeIf { stats.jankPercent > it }
                     ?.let { scryPalette.danger },
             )
-            StatCell(
+            ScryStat(
                 label = "frozen",
                 value = stats.frozenFrames.toString(),
                 color = if (stats.frozenFrames > 0) scryPalette.danger else null,
@@ -282,38 +388,43 @@ private fun SessionsTab(current: PerfSession, previous: List<PerfSession>) {
         return
     }
 
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = scrySpacing.md)) {
-        item {
-            ScrySectionHeader("This launch")
-            SessionRow(current, comparison = null)
-            ScryDivider()
-            ScrySectionHeader("Earlier")
-        }
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal = scrySpacing.md),
+        contentPadding = PaddingValues(vertical = scrySpacing.sm),
+    ) {
+        item { SessionCard(current, comparison = null, isCurrent = true) }
         items(previous) { session ->
-            SessionRow(session, comparison = current.diff(session))
-            ScryDivider()
+            SessionCard(session, comparison = current.diff(session), isCurrent = false)
         }
     }
 }
 
 @Composable
-private fun SessionRow(session: PerfSession, comparison: PerfComparison?) {
-    Column(Modifier.fillMaxWidth().padding(vertical = scrySpacing.sm)) {
-        Text(
-            text = epochMillisToIso8601(session.startedAtMillis),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
-            StatCell(
+private fun SessionCard(
+    session: PerfSession,
+    comparison: PerfComparison?,
+    isCurrent: Boolean,
+) {
+    ScryCard(
+        title = epochMillisToIso8601(session.startedAtMillis),
+        subtitle = session.appVersion,
+        trailing = if (isCurrent) {
+            { ScryPill("NOW", MaterialTheme.colorScheme.primary) }
+        } else {
+            null
+        },
+    ) {
+        ScryStatGrid {
+            ScryStat(
                 label = "startup",
                 value = session.startup?.let { "${it.totalMillis} ms" } ?: "—",
             )
-            StatCell(label = "jank", value = "${session.overallJankPercent.roundTo(1)}%")
-            StatCell(label = "screens", value = session.screens.size.toString())
+            ScryStat(label = "jank", value = "${session.overallJankPercent.roundTo(1)}%")
+            ScryStat(label = "screens", value = session.screens.size.toString())
         }
 
         // Deltas are stated from the current launch's point of view: negative
-        // means this launch is faster than the one on this row.
+        // means this launch is faster than the one on this card.
         comparison?.startupDeltaMillis?.let { delta ->
             Text(
                 text = if (delta <= 0) "$delta ms vs now" else "+$delta ms vs now",

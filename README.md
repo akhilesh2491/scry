@@ -5,7 +5,7 @@
 Chucker's network inspection, Flipper's storage tools, Pluto's plugin model — KMP-first, Java-friendly,
 and built so it cannot ship to your users by accident.
 
-> **Status: early release (`0.2.0`), available on Maven Central.** Expect the API to move before 1.0.
+> **Status: early release (`0.3.0`), available on Maven Central.** Expect the API to move before 1.0.
 > Android, JVM desktop and iOS are all verified on-device/simulator with running sample apps.
 >
 > **Scry installs into apps that have Kotlin shared code.** Kotlin and Java callers are both
@@ -64,12 +64,12 @@ that the API is expressive enough for anyone else's plugin — they use exactly 
 | Artifact | What it does |
 |---|---|
 | `scry-core` | Plugin API, config DSL + Java builder, SQLite-backed store with retention, redaction, sharing, shake-to-open |
-| `scry-ui` | Compose Multiplatform shell — plugin list, navigation, theme, Android activity host, desktop window |
+| `scry-ui` | Compose Multiplatform shell — plugin list, navigation, theme, shared screen bar / share / confirm-delete actions, Android activity host, desktop window |
 | `scry-network` | Engine-agnostic `NetworkTransaction`, capture plugin, list/detail UI, HAR + cURL export |
 | `scry-network-ktor` | Ktor client plugin — the multiplatform capture path |
 | `scry-network-okhttp` | OkHttp 5 interceptor — the Android/Retrofit path |
-| `scry-prefs` | Key-value store viewer **and editor** |
-| `scry-database` | SQLite browser and editor — schema, rows, cell editing, SQL console |
+| `scry-prefs` | Key-value store viewer **and editor**, with per-store JSON export and reset |
+| `scry-database` | SQLite browser and editor — schema, rows, cell editing, row/table delete, CSV export, SQL console |
 | `scry-crash` | Crash + ANR capture with cross-plugin context, and report sharing |
 | `scry-logs` | In-app logger, Android logcat capture, level/tag filtering |
 | `scry-perf` | Startup, screen-load and frame timing with budgets, sessions and JSON/CSV export |
@@ -84,7 +84,7 @@ Targets: **Android** (minSdk 23), **JVM desktop**, and **iOS** (arm64 + simulato
 
 ### Requirements
 
-`0.2.0` is **built and verified against** these versions. Older ones may work but are untested —
+`0.3.0` is **built and verified against** these versions. Older ones may work but are untested —
 if you are on an earlier Kotlin or AGP and hit a resolution failure, that is the first thing to check.
 
 | | |
@@ -125,7 +125,7 @@ In `gradle/libs.versions.toml`, so the modules can never drift apart:
 
 ```toml
 [versions]
-scry = "0.2.0"
+scry = "0.3.0"
 
 [libraries]
 scry-core           = { module = "io.github.akhilesh2491.scry:scry-core", version.ref = "scry" }
@@ -251,9 +251,9 @@ confusing "nothing happens" rather than a compile error — plus whichever modul
 `scry-no-op` to `releaseImplementation`. Library versions default to the plugin's own version, so
 the two can never drift apart.
 
-> The plugin is still at `0.1.0` while the libraries are at `0.2.0`. Because the default library
+> The plugin is still at `0.1.0` while the libraries are at `0.3.0`. Because the default library
 > version follows the plugin, applying it as shown wires the `0.1.0` libraries — set
-> `version.set("0.2.0")` in the `scry` block to pull the current ones. `ScryModule.PERF` does not
+> `version.set("0.3.0")` in the `scry` block to pull the current ones. `ScryModule.PERF` does not
 > exist in the published plugin yet, so wire `scry-perf` by hand (Steps 2 and 3) until the plugin
 > catches up.
 
@@ -806,10 +806,10 @@ val plugin = MyPlugin().apply { onInstall(ScryTesting.scope()) }
 ## Roadmap
 
 **Done:** network (Ktor + OkHttp), preferences, database, crashes/ANRs, logs, performance
-(startup / screen load / frames), HAR + cURL export, no-op + parity gate, Gradle plugin,
-Android + desktop + iOS.
+(startup / screen load / frames), export from every screen (HAR, cURL, JSON, CSV, text),
+per-screen clear/delete, no-op + parity gate, Gradle plugin, Android + desktop + iOS.
 
-**Published:** `0.2.0` on Maven Central, signed, across Android, JVM desktop and iOS · the Gradle
+**Published:** `0.3.0` on Maven Central, signed, across Android, JVM desktop and iOS · the Gradle
 plugin at `0.1.0` on the
 [Gradle Plugin Portal](https://plugins.gradle.org/plugin/io.github.akhilesh2491.scry).
 

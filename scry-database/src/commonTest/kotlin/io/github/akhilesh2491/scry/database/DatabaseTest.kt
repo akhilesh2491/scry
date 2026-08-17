@@ -142,6 +142,92 @@ class DatabaseTest {
 
         assertEquals(1, db.rowCount("order"))
     }
+
+    @Test
+    fun `deleteRow removes exactly the row identified by its primary key`() {
+        val db = seeded()
+        val columns = listOf("id", "name", "email")
+
+        val result = deleteRow(
+            db = db,
+            table = "users",
+            schema = db.columns("users"),
+            columns = columns,
+            row = ResultRow(listOf("1", "ada", "ada@x.io")),
+        )
+
+        assertTrue(!result.isError, result.error.orEmpty())
+        assertEquals(1, result.rowsAffected)
+        assertEquals(1, db.rowCount("users"))
+        assertEquals(
+            "grace",
+            db.query("SELECT name FROM users").rows.single().values.single(),
+        )
+    }
+
+    @Test
+    fun `deleteRow matches NULL columns with IS NULL rather than equals`() {
+        // Same trap as updateCell: `col = NULL` is never true, so a naive builder
+        // deletes nothing and the row appears to survive a confirmed delete.
+        val db = seeded()
+
+        val result = deleteRow(
+            db = db,
+            table = "users",
+            schema = emptyList(), // force the all-columns fallback path
+            columns = listOf("id", "name", "email"),
+            row = ResultRow(listOf("2", "grace", null)),
+        )
+
+        assertEquals(1, result.rowsAffected, "expected the NULL-email row to match")
+        assertEquals(1, db.rowCount("users"))
+    }
+
+    @Test
+    fun `deleteRow refuses when the row cannot be identified`() {
+        val result = deleteRow(
+            db = seeded(),
+            table = "users",
+            schema = emptyList(),
+            columns = emptyList(),
+            row = ResultRow(emptyList()),
+        )
+
+        assertTrue(result.isError)
+    }
+
+    @Test
+    fun `update and delete identify a row the same way`() {
+        // The two must never diverge: a DELETE that matched differently from the
+        // UPDATE beside it would eventually remove the wrong row.
+        val schema = seeded().columns("users")
+        val columns = listOf("id", "name", "email")
+        val row = ResultRow(listOf("2", "grace", null))
+
+        val predicate = identifyingPredicate(schema, columns, row)
+
+        assertEquals("\"id\" = ?", predicate?.sql)
+        assertEquals(listOf("2"), predicate?.bindings)
+    }
+
+    @Test
+    fun `csv export quotes fields that would otherwise break the row`() {
+        val db = seeded()
+        db.forceExecute("INSERT INTO users (id, name, email) VALUES (3, 'a,b', 'say \"hi\"')")
+
+        val csv = db.query("SELECT id, name, email FROM users ORDER BY id").csvExport()
+
+        assertEquals(
+            listOf(
+                "id,name,email",
+                "1,ada,ada@x.io",
+                // A NULL is an empty field, not the literal text NULL.
+                "2,grace,",
+                "3,\"a,b\",\"say \"\"hi\"\"\"",
+            ),
+            csv.trim().lines(),
+        )
+    }
 }
 
 /** Bypasses the writable guard so tests can seed a read-only fixture. */

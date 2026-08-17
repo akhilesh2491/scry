@@ -40,16 +40,17 @@ INTERNAL_NAMES = {
     "currentTimeMillis", "scryStorageDirectory", "isDebuggableBuild", "applicationId",
     "redactWith", "readTextOrNull",
     "formatBytes", "prettyPrintJson", "NetworkScreen",
-    "parseAs", "PreferencesScreen", "discoverStores",
+    "parseAs", "PreferencesScreen", "discoverStores", "jsonExport",
     "SharedPreferencesStore", "JavaPreferencesStore",
     "DatabaseScreen", "discoverDatabases", "updateCell", "CellEdit",
+    "csvExport", "deleteRow", "identifyingPredicate", "RowPredicate",
     "CrashScreen", "installCrashHandlers", "AnrWatchdog", "nowMillis",
     "LogScreen", "startSystemLogCapture", "parseLogcatLine", "attach",
     "MockScreen", "globToRegex", "TrafficTab", "mockedCall", "sleepQuietly",
     "toOkHttpResponse", "pillLabel", "pillColour",
     "PerfScreen", "FrameRing", "StartupTracker", "monotonicMillis", "processStartMillis",
     "perfPlatform", "startPerfMonitor", "roundTo", "epochMillisToIso8601",
-    "BudgetBar", "WaterfallBar", "FrameSparkline", "StatCell",
+    "BudgetBar", "WaterfallBar", "FrameSparkline", "PerfSection",
 }
 
 

@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -37,6 +35,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.github.akhilesh2491.scry.ui.ScryDestructiveAction
+import io.github.akhilesh2491.scry.ui.ScryScreenBar
+import io.github.akhilesh2491.scry.ui.ScrySearchField
+import io.github.akhilesh2491.scry.ui.ScryShareAction
 
 @Composable
 internal fun PreferencesScreen(plugin: PreferencesPlugin) {
@@ -96,7 +98,6 @@ private fun StoreDetail(store: KeyValueStore, onBack: () -> Unit) {
     var query by remember(store) { mutableStateOf("") }
     var editing by remember(store) { mutableStateOf<Pair<String, PreferenceValue>?>(null) }
     var adding by remember(store) { mutableStateOf(false) }
-    var confirmClear by remember(store) { mutableStateOf(false) }
 
     // Live updates while you use the app in another window/screen.
     LaunchedEffect(store) {
@@ -114,27 +115,45 @@ private fun StoreDetail(store: KeyValueStore, onBack: () -> Unit) {
             .mapNotNull { key -> store.read(key)?.let { key to it } }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to stores")
-            }
-            Text(store.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-            if (store.isMutable) {
-                IconButton(onClick = { adding = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add key")
-                }
-                IconButton(onClick = { confirmClear = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Clear store")
-                }
-            }
-        }
+    // The export covers the whole store, not the filtered view: a preferences
+    // file with half its keys missing is a trap for whoever reads it later.
+    val allKeys = remember(store, revision) { store.keys() }
 
-        OutlinedTextField(
+    Column(Modifier.fillMaxSize()) {
+        ScryScreenBar(
+            title = store.name,
+            subtitle = "${allKeys.size} keys" + if (!store.isMutable) " · read-only" else "",
+            onBack = onBack,
+            actions = {
+                if (store.isMutable) {
+                    IconButton(onClick = { adding = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add key")
+                    }
+                }
+                ScryShareAction(
+                    fileName = "scry-prefs-${store.name.sanitisedForFileName()}.json",
+                    enabled = allKeys.isNotEmpty(),
+                    description = "Share store",
+                    text = { store.jsonExport(allKeys) },
+                )
+                if (store.isMutable) {
+                    ScryDestructiveAction(
+                        title = "Clear ${store.name}?",
+                        message = "Removes every key in this store. This affects the app, " +
+                            "not just Scry.",
+                        confirmLabel = "Clear",
+                        description = "Clear store",
+                        enabled = allKeys.isNotEmpty(),
+                        onConfirm = { store.clear(); revision++ },
+                    )
+                }
+            },
+        )
+
+        ScrySearchField(
             value = query,
             onValueChange = { query = it },
-            label = { Text("Filter keys") },
-            singleLine = true,
+            placeholder = "Filter keys",
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
         )
 
@@ -186,22 +205,20 @@ private fun StoreDetail(store: KeyValueStore, onBack: () -> Unit) {
         )
     }
 
-    if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text("Clear ${store.name}?") },
-            text = { Text("Removes every key in this store. This affects the app, not just Scry.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    store.clear()
-                    confirmClear = false
-                    revision++
-                }) { Text("Clear") }
-            },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
-        )
-    }
 }
+
+/**
+ * Makes a store name safe to put in a file name.
+ *
+ * Store names come from the platform — an Android `SharedPreferences` file, an
+ * `NSUserDefaults` suite — and a path separator in one would land the export
+ * somewhere nobody asked for.
+ */
+private fun String.sanitisedForFileName(): String =
+    map { if (it.isLetterOrDigit() || it == '-' || it == '_') it else '-' }
+        .joinToString("")
+        .trim('-')
+        .ifEmpty { "store" }
 
 @Composable
 private fun PreferenceRow(

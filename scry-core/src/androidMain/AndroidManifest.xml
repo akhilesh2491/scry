@@ -12,7 +12,18 @@
             android:name="io.github.akhilesh2491.scry.core.ScryFileProvider"
             android:authorities="${applicationId}.scry.fileprovider"
             android:exported="false"
-            android:grantUriPermissions="true" />
+            android:grantUriPermissions="true">
+            <!--
+              Required, despite ScryFileProvider passing the same resource to
+              FileProvider's constructor. The static getUriForFile() resolves a
+              path strategy by reading this meta-data off the manifest — it never
+              instantiates the provider subclass — so without this element every
+              export failed with "Missing android.support.FILE_PROVIDER_PATHS".
+            -->
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/scry_file_paths" />
+        </provider>
     </application>
 
 </manifest>

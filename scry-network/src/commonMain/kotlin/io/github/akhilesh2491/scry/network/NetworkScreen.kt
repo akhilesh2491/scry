@@ -1,9 +1,6 @@
 package io.github.akhilesh2491.scry.network
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,17 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -34,21 +22,19 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.github.akhilesh2491.scry.core.Scry
-import io.github.akhilesh2491.scry.core.shareScryFile
 import io.github.akhilesh2491.scry.ui.ScryCodeBlock
+import io.github.akhilesh2491.scry.ui.ScryDestructiveAction
 import io.github.akhilesh2491.scry.ui.ScryDivider
 import io.github.akhilesh2491.scry.ui.ScryEmptyState
 import io.github.akhilesh2491.scry.ui.ScryKeyValue
 import io.github.akhilesh2491.scry.ui.ScryListRow
 import io.github.akhilesh2491.scry.ui.ScryPill
+import io.github.akhilesh2491.scry.ui.ScryScreenBar
 import io.github.akhilesh2491.scry.ui.ScrySearchField
 import io.github.akhilesh2491.scry.ui.ScrySectionHeader
+import io.github.akhilesh2491.scry.ui.ScryShareAction
 import io.github.akhilesh2491.scry.ui.ScryStatusColors
 import io.github.akhilesh2491.scry.ui.scryMonoStyle
 import io.github.akhilesh2491.scry.ui.scryPalette
@@ -93,28 +79,35 @@ private fun TrafficTab(plugin: NetworkPlugin) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ScrySearchField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = "Filter by URL, method or status",
-                modifier = Modifier.weight(1f).padding(scrySpacing.md),
-            )
-            IconButton(
-                enabled = transactions.isNotEmpty(),
-                onClick = {
-                    // HAR imports into Charles, Proxyman, Insomnia and DevTools —
-                    // the bridge from an on-device capture to desktop tooling.
-                    Scry.instance?.let { instance ->
-                        shareScryFile(
-                            context = instance.platformContext,
-                            fileName = "scry-session.har",
-                            text = transactions.toHar(),
-                        )
-                    }
-                },
-            ) { Icon(Icons.Default.Share, contentDescription = "Export session as HAR") }
-        }
+        ScryScreenBar(
+            center = {
+                ScrySearchField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = "Filter by URL, method or status",
+                    modifier = Modifier.weight(1f).padding(horizontal = scrySpacing.sm),
+                )
+            },
+            actions = {
+                // HAR imports into Charles, Proxyman, Insomnia and DevTools —
+                // the bridge from an on-device capture to desktop tooling.
+                ScryShareAction(
+                    fileName = "scry-session.har",
+                    enabled = transactions.isNotEmpty(),
+                    description = "Export session as HAR",
+                    text = { transactions.toHar() },
+                )
+                ScryDestructiveAction(
+                    title = "Clear captured traffic?",
+                    message = "Removes the ${transactions.size} requests Scry has recorded. " +
+                        "Capture stays on, so new requests still appear.",
+                    confirmLabel = "Clear",
+                    description = "Clear captured traffic",
+                    enabled = transactions.isNotEmpty(),
+                    onConfirm = { plugin.onClear() },
+                )
+            },
+        )
 
         val filtered = remember(transactions, query) {
             if (query.isBlank()) {
@@ -186,28 +179,18 @@ private fun TransactionDetail(transaction: NetworkTransaction, onBack: () -> Uni
     var tab by remember { mutableIntStateOf(0) }
 
     Column(Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to list")
-            }
-            Text(
-                "${transaction.method} ${transaction.path}",
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(
-                onClick = {
-                    Scry.instance?.let { instance ->
-                        shareScryFile(
-                            context = instance.platformContext,
-                            fileName = "scry-request.sh",
-                            text = transaction.toCurl(),
-                        )
-                    }
-                },
-            ) { Icon(Icons.Default.Share, contentDescription = "Share as cURL") }
-        }
+        ScryScreenBar(
+            title = "${transaction.method} ${transaction.path}",
+            subtitle = transaction.host,
+            onBack = onBack,
+            actions = {
+                ScryShareAction(
+                    fileName = "scry-request.sh",
+                    description = "Share as cURL",
+                    text = { transaction.toCurl() },
+                )
+            },
+        )
         TabRow(selectedTabIndex = tab) {
             listOf("Overview", "Request", "Response").forEachIndexed { index, title ->
                 Tab(selected = tab == index, onClick = { tab = index }, text = { Text(title) })
@@ -261,21 +244,6 @@ private fun BodyTab(headers: List<HttpHeader>, body: String?, truncated: Boolean
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun KeyValue(key: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            key,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.35f),
-        )
-        SelectionContainer(Modifier.weight(0.65f)) {
-            Text(value, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
         }
     }
 }

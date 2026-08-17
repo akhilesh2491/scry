@@ -25,12 +25,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import io.github.akhilesh2491.scry.core.Scry
-import io.github.akhilesh2491.scry.core.shareScryFile
+import io.github.akhilesh2491.scry.ui.ScryDestructiveAction
 import io.github.akhilesh2491.scry.ui.ScryDivider
 import io.github.akhilesh2491.scry.ui.ScryEmptyState
 import io.github.akhilesh2491.scry.ui.ScryPill
 import io.github.akhilesh2491.scry.ui.ScrySectionHeader
+import io.github.akhilesh2491.scry.ui.ScryShareAction
 import io.github.akhilesh2491.scry.ui.scryMonoStyle
 import io.github.akhilesh2491.scry.ui.scryPalette
 import io.github.akhilesh2491.scry.ui.scrySpacing
@@ -91,23 +91,27 @@ internal fun MockScreen(plugin: NetworkPlugin) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ScrySectionHeader("Rules")
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { showAdd = true }) { Text("Add") }
                 TextButton(onClick = { showImport = true }) { Text("Import") }
-                TextButton(
+                // Export is the point of the feature: a scenario nobody else can
+                // reproduce is not worth configuring.
+                ScryShareAction(
+                    fileName = "scry-mocks.json",
                     enabled = config.rules.isNotEmpty(),
-                    onClick = {
-                        // Export is the point of the feature: a scenario nobody
-                        // else can reproduce is not worth configuring.
-                        Scry.instance?.let {
-                            shareScryFile(
-                                it.platformContext,
-                                "scry-mocks.json",
-                                plugin.mocks.exportJson(),
-                            )
-                        }
-                    },
-                ) { Text("Export") }
+                    description = "Export rules",
+                    label = "Export",
+                    text = { plugin.mocks.exportJson() },
+                )
+                ScryDestructiveAction(
+                    title = "Delete all rules?",
+                    message = "Removes the ${config.rules.size} rules configured here. " +
+                        "Offline and throttle settings are left alone.",
+                    confirmLabel = "Delete",
+                    description = "Delete all rules",
+                    enabled = config.rules.isNotEmpty(),
+                    onConfirm = { plugin.mocks.clearRules() },
+                )
             }
         }
 

@@ -1,16 +1,23 @@
 package io.github.akhilesh2491.scry.perf
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -35,12 +42,16 @@ import kotlin.math.max
  *
  * Colour is the message: green under budget, amber approaching it, red over. The
  * bar is never empty — a zero-width fill reads as "broken", not as "fast".
+ *
+ * The caption states the two numbers the bar encodes. Without it the bar says
+ * "this is bad" while making the reader hunt for how bad.
  */
 @Composable
 internal fun BudgetBar(
     value: Double,
     limit: Double?,
     modifier: Modifier = Modifier,
+    showCaption: Boolean = true,
 ) {
     val palette = scryPalette
     // With no budget there is nothing to be over, so the bar is informational
@@ -54,21 +65,34 @@ internal fun BudgetBar(
         else -> palette.success
     }
 
-    Canvas(modifier.fillMaxWidth().height(6.dp)) {
-        drawRect(color = colour.copy(alpha = 0.18f), size = size)
-        drawRect(
-            color = colour,
-            size = Size(width = size.width * fraction, height = size.height),
-        )
+    Column(modifier.fillMaxWidth()) {
+        Canvas(Modifier.fillMaxWidth().height(BAR_HEIGHT)) {
+            val radius = CornerRadius(size.height / 2f, size.height / 2f)
+            drawRoundRect(color = colour.copy(alpha = 0.18f), size = size, cornerRadius = radius)
+            drawRoundRect(
+                color = colour,
+                size = Size(width = max(size.width * fraction, size.height), height = size.height),
+                cornerRadius = radius,
+            )
+        }
+        if (showCaption && limit != null) {
+            Text(
+                text = "${value.roundTo(0)} ms of ${limit.roundTo(0)} ms budget",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (value > limit) palette.danger else palette.muted,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
     }
 }
 
 /**
- * A startup breakdown drawn as stacked segments on one row.
+ * A startup breakdown drawn as stacked segments on one row, with a legend.
  *
  * A waterfall rather than a list of numbers because the question is almost never
  * "how long was startup" but "which part of it was long", and proportion answers
- * that faster than arithmetic does.
+ * that faster than arithmetic does. The legend is what turns the colours from
+ * decoration into something readable.
  */
 @Composable
 internal fun WaterfallBar(
@@ -77,18 +101,39 @@ internal fun WaterfallBar(
     modifier: Modifier = Modifier,
 ) {
     if (phases.isEmpty() || totalMillis <= 0) return
-    val palette = scryPalette
-    val colours = listOf(palette.info, palette.success, palette.warning, palette.danger)
+    val colours = phaseColours()
 
-    Canvas(modifier.fillMaxWidth().height(14.dp)) {
-        phases.forEachIndexed { index, phase ->
-            val start = (phase.startOffsetMillis.toDouble() / totalMillis).coerceIn(0.0, 1.0)
-            val width = (phase.durationMillis.toDouble() / totalMillis).coerceIn(0.0, 1.0)
-            drawRect(
-                color = colours[index % colours.size],
-                topLeft = Offset(x = (start * size.width).toFloat(), y = 0f),
-                size = Size(width = (width * size.width).toFloat(), height = size.height),
-            )
+    Column(modifier.fillMaxWidth()) {
+        Canvas(Modifier.fillMaxWidth().height(WATERFALL_HEIGHT)) {
+            phases.forEachIndexed { index, phase ->
+                val start = (phase.startOffsetMillis.toDouble() / totalMillis).coerceIn(0.0, 1.0)
+                val width = (phase.durationMillis.toDouble() / totalMillis).coerceIn(0.0, 1.0)
+                drawRect(
+                    color = colours[index % colours.size],
+                    topLeft = Offset(x = (start * size.width).toFloat(), y = 0f),
+                    size = Size(width = (width * size.width).toFloat(), height = size.height),
+                )
+            }
+        }
+
+        FlowRow(
+            Modifier.fillMaxWidth().padding(top = scrySpacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(scrySpacing.md),
+        ) {
+            phases.forEachIndexed { index, phase ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .background(colours[index % colours.size], CircleShape),
+                    )
+                    Text(
+                        text = " ${phase.name}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scryPalette.muted,
+                    )
+                }
+            }
         }
     }
 }
@@ -111,7 +156,7 @@ internal fun FrameSparkline(
     // stretch does not get amplified into a wall of full-height bars.
     val ceiling = max(durationsMillis.max(), budgetMillis * 2)
 
-    Canvas(modifier.fillMaxWidth().height(40.dp)) {
+    Canvas(modifier.fillMaxWidth().height(SPARKLINE_HEIGHT)) {
         val slot = size.width / durationsMillis.size
         val barWidth = max(slot - 1f, 1f)
 
@@ -133,29 +178,24 @@ internal fun FrameSparkline(
     }
 }
 
-/** A labelled statistic, used in the row of percentiles above a chart. */
+/** Segment colours, in the order phases are drawn. */
 @Composable
-internal fun StatCell(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    color: Color? = null,
-) {
-    Box(modifier.padding(end = scrySpacing.md), contentAlignment = Alignment.CenterStart) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = color ?: MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = " $label",
-                style = MaterialTheme.typography.labelSmall,
-                color = scryPalette.muted,
-            )
-        }
-    }
+private fun phaseColours(): List<Color> {
+    val palette = scryPalette
+    return listOf(palette.info, palette.success, palette.warning, palette.danger)
 }
 
 /** Where a value stops being comfortably under budget and starts being a warning. */
 private const val WARNING_FRACTION: Double = 0.8
+
+private val BAR_HEIGHT = 8.dp
+private val WATERFALL_HEIGHT = 20.dp
+
+/**
+ * Tall enough to read a shape in.
+ *
+ * At the previous 40dp a run of frames a few milliseconds over budget was a
+ * couple of pixels taller than one under it — the chart was present without
+ * being informative.
+ */
+private val SPARKLINE_HEIGHT = 64.dp

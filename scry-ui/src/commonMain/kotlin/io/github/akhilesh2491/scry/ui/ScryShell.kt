@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,19 +23,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import io.github.akhilesh2491.scry.core.Scry
 import io.github.akhilesh2491.scry.core.ScryInstance
 import io.github.akhilesh2491.scry.core.ScryPlugin
+import kotlinx.coroutines.launch
 
 /**
  * The Scry UI: a plugin list that drills into a single plugin's screen.
@@ -57,68 +61,87 @@ public fun ScryShell(
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf<ScryPlugin?>(null) }
-    var confirmClear by remember { mutableStateOf(false) }
+    val snackbars = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    ScryTheme {
-        Surface(
-            modifier = modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                val current = selected
-                ScryTopBar(
-                    title = current?.displayName ?: "Scry",
-                    subtitle = current?.id,
-                    onBack = current?.let { { selected = null } },
-                    onClear = if (current == null) {
-                        { confirmClear = true }
-                    } else {
-                        null
-                    },
-                    onDismiss = onDismiss,
-                )
-                ScryDivider()
-
-                val contentInsets = Modifier.windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                    ),
-                )
-
-                if (current == null) {
-                    Box(contentInsets) { PluginList(instance.plugins) { selected = it } }
-                } else {
-                    Box(Modifier.fillMaxSize().then(contentInsets)) {
-                        when (current) {
-                            is ScryUiPlugin -> current.Content()
-                            else -> ScryEmptyState(
-                                title = "${current.displayName} has no screen.",
-                                hint = "It implements ScryPlugin but not ScryUiPlugin.",
-                            )
-                        }
-                    }
-                }
+    // Hosted once, here, so any screen can report the outcome of an action the
+    // user has no other way to observe — a share sheet the platform refused to
+    // present being the case that prompted it.
+    val feedback: (String) -> Unit = remember(snackbars, scope) {
+        { message ->
+            scope.launch {
+                snackbars.currentSnackbarData?.dismiss()
+                snackbars.showSnackbar(message, duration = SnackbarDuration.Short)
             }
         }
+    }
 
-        if (confirmClear) {
-            AlertDialog(
-                onDismissRequest = { confirmClear = false },
-                title = { Text("Clear captured data?") },
-                text = {
-                    Text(
-                        "Removes everything Scry has captured. Your app's preferences and " +
-                            "databases are not touched.",
-                        style = MaterialTheme.typography.bodySmall,
+    ScryTheme {
+        CompositionLocalProvider(LocalScryFeedback provides feedback) {
+            Surface(
+                modifier = modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background,
+            ) {
+                Box(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize()) {
+                        val current = selected
+                        ScryTopBar(
+                            title = current?.displayName ?: "Scry",
+                            subtitle = current?.id,
+                            onBack = current?.let { { selected = null } },
+                            onDismiss = onDismiss,
+                            actions = {
+                                // Global clear only on the list. A plugin's own
+                                // screen carries the action that is right for it:
+                                // clearing captured traffic and emptying the
+                                // app's preferences are not the same button.
+                                if (current == null) {
+                                    ScryDestructiveAction(
+                                        title = "Clear captured data?",
+                                        message = "Removes everything Scry has captured. Your " +
+                                            "app's preferences and databases are not touched.",
+                                        confirmLabel = "Clear",
+                                        description = "Clear captured data",
+                                        onConfirm = { Scry.clear(); feedback("Cleared.") },
+                                    )
+                                }
+                            },
+                        )
+                        ScryDivider()
+
+                        val contentInsets = Modifier.windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(
+                                WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                            ),
+                        )
+
+                        if (current == null) {
+                            Box(contentInsets) { PluginList(instance.plugins) { selected = it } }
+                        } else {
+                            Box(Modifier.fillMaxSize().then(contentInsets)) {
+                                when (current) {
+                                    is ScryUiPlugin -> current.Content()
+                                    else -> ScryEmptyState(
+                                        title = "${current.displayName} has no screen.",
+                                        hint = "It implements ScryPlugin but not ScryUiPlugin.",
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    SnackbarHost(
+                        hostState = snackbars,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(
+                                WindowInsets.safeDrawing.only(
+                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                                ),
+                            ),
                     )
-                },
-                confirmButton = {
-                    TextButton(onClick = { Scry.clear(); confirmClear = false }) { Text("Clear") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { confirmClear = false }) { Text("Cancel") }
-                },
-            )
+                }
+            }
         }
     }
 }
@@ -128,8 +151,8 @@ private fun ScryTopBar(
     title: String,
     subtitle: String?,
     onBack: (() -> Unit)?,
-    onClear: (() -> Unit)?,
     onDismiss: () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
 ) {
     Row(
         Modifier
@@ -161,15 +184,7 @@ private fun ScryTopBar(
             }
         }
 
-        onClear?.let {
-            IconButton(onClick = it) {
-                Icon(
-                    Icons.Default.DeleteOutline,
-                    contentDescription = "Clear captured data",
-                    tint = scryPalette.muted,
-                )
-            }
-        }
+        actions()
         IconButton(onClick = onDismiss) {
             Icon(Icons.Default.Close, contentDescription = "Close Scry")
         }

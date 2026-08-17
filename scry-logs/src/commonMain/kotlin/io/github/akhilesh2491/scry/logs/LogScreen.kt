@@ -13,14 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -32,14 +26,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.github.akhilesh2491.scry.core.Scry
-import io.github.akhilesh2491.scry.core.shareScryFile
+import io.github.akhilesh2491.scry.ui.ScryDestructiveAction
 import io.github.akhilesh2491.scry.ui.ScryDivider
 import io.github.akhilesh2491.scry.ui.ScryPill
+import io.github.akhilesh2491.scry.ui.ScryScreenBar
 import io.github.akhilesh2491.scry.ui.ScrySearchField
-import io.github.akhilesh2491.scry.ui.scryMonoStyle
+import io.github.akhilesh2491.scry.ui.ScryShareAction
 import io.github.akhilesh2491.scry.ui.scryPalette
 import io.github.akhilesh2491.scry.ui.scrySpacing
 
@@ -54,27 +47,34 @@ internal fun LogScreen(plugin: LogPlugin) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ScrySearchField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = "Filter by tag or message",
-                modifier = Modifier.weight(1f).padding(scrySpacing.md),
-            )
-            IconButton(
-                enabled = filtered.isNotEmpty(),
-                onClick = {
-                    Scry.instance?.let { instance ->
-                        shareScryFile(
-                            context = instance.platformContext,
-                            fileName = "scry-logs.txt",
-                            // Oldest first in the export: a log file reads forwards.
-                            text = filtered.asReversed().joinToString("\n") { it.format() },
-                        )
-                    }
-                },
-            ) { Icon(Icons.Default.Share, contentDescription = "Share logs") }
-        }
+        ScryScreenBar(
+            center = {
+                ScrySearchField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = "Filter by tag or message",
+                    modifier = Modifier.weight(1f).padding(horizontal = scrySpacing.sm),
+                )
+            },
+            actions = {
+                ScryShareAction(
+                    fileName = "scry-logs.txt",
+                    enabled = filtered.isNotEmpty(),
+                    description = "Share logs",
+                    // Oldest first in the export: a log file reads forwards.
+                    text = { filtered.asReversed().joinToString("\n") { it.format() } },
+                )
+                ScryDestructiveAction(
+                    title = "Clear logs?",
+                    message = "Removes the ${entries.size} entries Scry has captured. " +
+                        "The app carries on logging.",
+                    confirmLabel = "Clear",
+                    description = "Clear logs",
+                    enabled = entries.isNotEmpty(),
+                    onConfirm = { plugin.onClear() },
+                )
+            },
+        )
 
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
