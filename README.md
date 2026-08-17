@@ -535,17 +535,135 @@ Recent measurements are attached to crash reports, and the whole history exports
 
 Activities and Fragments are instrumented automatically. Fragments need no dependency from you —
 `androidx.fragment` is `compileOnly` here and the hook is skipped if your app does not have it.
-For anything else — a Compose screen, a custom navigator, a UIKit view controller — one call is
-enough:
-
-```kotlin
-LaunchedEffect(Unit) { ScryTrace.screenEntered("Checkout") }
-ScryTrace.reportFullyDrawn("Checkout", millisSinceEntered)   // optional TTFD
-```
 
 `ScryTrace` is deliberately not a `@Composable`: everything an app calls in shared code needs an
 inert mirror in `scry-no-op`, and a `@Composable` mirror would mean shipping Compose in release —
 the one thing that artifact exists to prevent.
+
+#### Measuring a specific screen, list or view
+
+Everything Scry attributes — every screen load, every frame — is filed under a **name**. The
+automatic Android hooks supply two of them, `Activity` and `Fragment`, and nothing else. Whatever
+your app calls a screen, you name it yourself.
+
+**Start here if you only see one screen.** In a single-Activity Compose app, the automatic hook has
+exactly one name to report, so every screen load and every dropped frame in the app lands in one
+bucket called `MainActivity`. That is the tool working correctly on the only boundary it can see —
+not a bug, and not something a setting turns on. Name your screens and the rest of this section
+works.
+
+**Activities.** Nothing to do. Every non-Scry `Activity` is timed from `onCreate` to its first draw,
+and frames are attributed to it from `onResume`. Push a second Activity and it appears on its own.
+
+**Fragments.** Also nothing to do, including child fragments inside a `ViewPager` or a nested host —
+the callbacks are registered recursively, because those are exactly the loads that are hardest to
+see any other way.
+
+**Compose screens, or any custom navigator.** One call per destination. `screenEntered` both starts
+the screen's load clock and decides which screen subsequent frames count against:
+
+```kotlin
+@Composable
+fun CheckoutScreen() {
+    LaunchedEffect(Unit) { ScryTrace.screenEntered("Checkout") }
+    …
+}
+```
+
+Prefer one central place over a call per screen — you cannot forget a destination that way, and
+**back navigation matters**: the screen you return to never re-announces itself, so without this its
+frames keep landing in the bucket of the screen you just left.
+
+```kotlin
+navController.addOnDestinationChangedListener { _, destination, _ ->
+    ScryTrace.screenEntered(destination.route ?: "unknown")
+}
+```
+
+Called from a `LaunchedEffect`, the load clock starts *after* the first composition — so it misses
+the ViewModel construction and query setup that a screen does when it first composes, which is
+usually the expensive part. If that is what you are chasing, announce during composition instead
+(`remember(key) { ScryTrace.screenEntered(name) }`) and the number includes it.
+
+The clock is closed by the next frame Scry observes, so on **JVM desktop** — which has no frame
+monitor, for the reason given below — nothing ever closes it. Time the load yourself there and hand
+over the result with `ScryTrace.screenDisplayed("Checkout", ttidMillis)`.
+
+**A list, and why scrolling deserves its own bucket.** Idle frames are plentiful and cheap. Mix them
+in and a list that visibly stutters still reports a healthy p90, because the jank is a rounding
+error against thousands of frames spent doing nothing. Give the scroll its own name:
+
+```kotlin
+val listState = rememberLazyListState()
+val perf = PerfPlugin.installed()
+
+LaunchedEffect(listState) {
+    snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+        perf?.attributeFramesTo(if (scrolling) "Feed:scroll" else "Feed")
+    }
+}
+```
+
+Use `attributeFramesTo`, **not** `screenEntered`. Only the frame bucket should move — scrolling is
+not a screen load, and routing it through `screenEntered` files a bogus load every time a finger
+leaves the glass. The same applies to a `RecyclerView` (`OnScrollListener`), a tab switch inside one
+screen, or a pager page.
+
+**A custom view, or any expensive block.** There is no per-view frame data to give you:
+`FrameMetrics` reports whole-window frames, so one view's contribution to a frame is not separable
+from the rest of the tree. Measure the work directly instead — wrap `onDraw`, a bind, an inflate, an
+image decode, a migration:
+
+```kotlin
+override fun onDraw(canvas: Canvas) = ScryTrace.measure("SparklineView.onDraw") {
+    super.onDraw(canvas)
+    …
+}
+```
+
+`measure` records even if the block throws. Across a callback boundary, open and close it yourself
+with `ScryTrace.begin(name)` / `span.close()`. Nested spans are indented on the plugin's screen.
+
+**Time-to-full-display.** Screen load measures time-to-*initial*-display — the frame the screen
+appears on, which for a network-backed screen is an empty one. When its data actually lands is
+something only your app knows:
+
+```kotlin
+ScryTrace.reportFullyDrawn("Checkout", millisSinceEntered)
+```
+
+One catch worth knowing: a TTFD attaches to the most recent screen load recorded **under the same
+name** that does not have one yet. Report against a name that never announced itself and the number
+is dropped silently. If a composable is reused under several hosts, report against the host.
+
+**Reading the numbers in code**, for a QA gate or your own overlay:
+
+```kotlin
+PerfPlugin.installed()?.frameStats("Feed:scroll")      // p50/p90/p99, jankPercent, frozenFrames
+PerfPlugin.installed()?.recentFrames("Feed:scroll", 120)
+```
+
+**Keep names bounded.** Scry holds a ring of frame samples per name for the life of the process, so
+names should describe screens, not instances. `ChannelThread` is a name; `channel-8f3a91` is a
+memory leak with a hundred one-sample buckets where a useful percentile should be.
+
+**Shared KMP code that must not see Scry.** If your screens live in a shared module that also
+compiles for release or for iOS, do not import `io.github.akhilesh2491.scry.*` there. Either depend
+on [`scry-no-op`](#the-no-op-artifact) in those configurations, or declare your own inert hook in
+shared code and install it from your debug source set — a handful of nullable function properties,
+wired once at startup:
+
+```kotlin
+// your own object, in shared code, with no Scry import:
+//   object ScreenTrace { var onScreenEntered: ((String) -> Unit)? = null; … }
+// wired here, from the debug source set, where Scry does exist:
+ScreenTrace.install(
+    onScreenEntered = ScryTrace::screenEntered,
+    onFullyDrawn = ScryTrace::reportFullyDrawn,
+)
+```
+
+Release wires nothing, so every call in shared code stays a null check.
 
 #### What each target actually measures
 
