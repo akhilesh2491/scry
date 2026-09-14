@@ -24,6 +24,8 @@ public class Redactor internal constructor(
 ) {
     public fun shouldRedactHeader(name: String): Boolean = false
     public fun redactHeaderValue(name: String, value: String): String = value
+    public fun shouldRedactBodyKey(name: String): Boolean = false
+    public fun redactBodyValue(name: String, value: String): String = value
     public fun redactJsonBody(body: String): String = body
 
     public companion object {
@@ -89,6 +91,12 @@ public class ScryStore internal constructor() {
 public interface ScryEvent {
     public val timestampMillis: Long
 }
+
+public data class ScreenChangedEvent(
+    public val screen: String,
+    public val source: String,
+    override val timestampMillis: Long,
+) : ScryEvent
 
 public class ScryEventBus internal constructor() {
     public val events: Flow<ScryEvent> = emptyFlow()

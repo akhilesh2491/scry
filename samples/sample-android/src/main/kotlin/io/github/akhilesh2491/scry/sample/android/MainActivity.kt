@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import io.github.akhilesh2491.scry.analytics.ScryAnalytics
 import io.github.akhilesh2491.scry.core.Scry
 import io.github.akhilesh2491.scry.network.ktor.ScryKtor
 import io.github.akhilesh2491.scry.perf.ScryTrace
@@ -116,6 +118,13 @@ private fun SampleScreen(ktorClient: HttpClient, okHttpClient: OkHttpClient) {
     val context = LocalContext.current
     var status by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+
+    // In composition rather than in `onCreate`: the performance plugin announces
+    // "MainActivity" from an activity lifecycle callback, and an event fired
+    // before that would be attributed to the screen this one replaced.
+    LaunchedEffect(Unit) {
+        ScryAnalytics.track("screen_view", mapOf("screen_name" to "main"))
+    }
 
     fun fire(label: String, block: suspend () -> String) {
         scope.launch {
@@ -199,6 +208,26 @@ private fun SampleScreen(ktorClient: HttpClient, okHttpClient: OkHttpClient) {
                     (2..60_000).count { n -> (2..n / 2).none { n % it == 0 } }
                 }
                 status = "Counted $digits primes"
+            }
+
+            SectionLabel("Analytics")
+            ActionCard(
+                "Fire a correct event",
+                "begin_checkout with cart_value and currency — Screens turns green",
+            ) {
+                ScryAnalytics.track(
+                    "begin_checkout",
+                    mapOf("cart_value" to 49.90, "currency" to "USD", "user_token" to "abc123"),
+                )
+                status = "Tracked begin_checkout (user_token arrives redacted)"
+            }
+            ActionCard(
+                "Fire a broken event",
+                "Same event with currency missing and cart_value sent as a string",
+                tone = Tone.WARNING,
+            ) {
+                ScryAnalytics.track("begin_checkout", mapOf("cart_value" to "49.90"))
+                status = "Tracked a malformed begin_checkout — see Analytics → Issues"
             }
 
             SectionLabel("Failures")

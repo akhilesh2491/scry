@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import io.github.akhilesh2491.scry.analytics.AnalyticsParamType
+import io.github.akhilesh2491.scry.analytics.AnalyticsPlugin
+import io.github.akhilesh2491.scry.analytics.ScryAnalytics
 import io.github.akhilesh2491.scry.core.PlatformContext
 import io.github.akhilesh2491.scry.core.Scry
 import io.github.akhilesh2491.scry.network.NetworkPlugin
@@ -42,6 +45,20 @@ import kotlinx.coroutines.launch
 private val scry = Scry.install(PlatformContext(applicationId = "scry-sample-desktop")) {
     plugin(NetworkPlugin { maxBodyBytes = 128 * 1024 })
     plugin(PerfPlugin())
+    plugin(
+        AnalyticsPlugin {
+            // Desktop has no frame monitor, so screens are announced by hand
+            // (see below) and a visit is judged when you press "Check now" or
+            // move to another screen — never on a timer.
+            settleMillis = 0
+            expect("Checkout") {
+                event("begin_checkout") {
+                    param("cart_value", AnalyticsParamType.NUMBER)
+                    param("currency", AnalyticsParamType.STRING, oneOf = setOf("USD", "EUR"))
+                }
+            }
+        },
+    )
 }
 
 private val httpClient = HttpClient(CIO) {
@@ -133,6 +150,30 @@ private fun SampleScreen() {
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("GET  unreachable host  (error capture)") }
+
+            Button(
+                onClick = {
+                    ScryAnalytics.screenEntered("Checkout")
+                    ScryAnalytics.track(
+                        "begin_checkout",
+                        mapOf("cart_value" to 49.90, "currency" to "USD"),
+                    )
+                    lastResult = "Tracked begin_checkout on Checkout — Analytics passes"
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Analytics  ·  correct event") }
+
+            Button(
+                onClick = {
+                    // Same event, currency missing and the value sent as a
+                    // string: the two mistakes a tracking plan review catches
+                    // weeks late.
+                    ScryAnalytics.screenEntered("Checkout")
+                    ScryAnalytics.track("begin_checkout", mapOf("cart_value" to "49.90"))
+                    lastResult = "Tracked a malformed begin_checkout — Analytics fails"
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Analytics  ·  broken event") }
 
             Button(
                 onClick = { Scry.show() },

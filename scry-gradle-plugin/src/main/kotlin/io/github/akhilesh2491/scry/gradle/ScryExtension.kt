@@ -13,6 +13,7 @@ public enum class ScryModule(internal val artifact: String) {
     DATABASE("scry-database"),
     CRASH("scry-crash"),
     PERF("scry-perf"),
+    ANALYTICS("scry-analytics"),
 }
 
 /**

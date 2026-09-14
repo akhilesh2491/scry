@@ -51,6 +51,7 @@ INTERNAL_NAMES = {
     "PerfScreen", "FrameRing", "StartupTracker", "monotonicMillis", "processStartMillis",
     "perfPlatform", "startPerfMonitor", "roundTo", "epochMillisToIso8601",
     "BudgetBar", "WaterfallBar", "FrameSparkline", "PerfSection",
+    "AnalyticsScreen", "AnalyticsSection", "clockTime",
 }
 
 

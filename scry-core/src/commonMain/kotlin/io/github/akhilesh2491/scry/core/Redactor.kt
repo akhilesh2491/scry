@@ -29,6 +29,23 @@ public class Redactor internal constructor(
     public fun redactHeaderValue(name: String, value: String): String =
         if (shouldRedactHeader(name)) REDACTED else value
 
+    /** True if a value stored under this key should be masked. Substring matched. */
+    public fun shouldRedactBodyKey(name: String): Boolean {
+        val lower = name.lowercase()
+        return lowerBodyKeys.any { lower.contains(it) }
+    }
+
+    /**
+     * Returns [value] or [REDACTED], depending on [name].
+     *
+     * The key/value counterpart to [redactJsonBody], for captured data that
+     * arrives as a map rather than as a JSON document — analytics parameters,
+     * which routinely carry a user id or an email next to the thing you actually
+     * wanted to check.
+     */
+    public fun redactBodyValue(name: String, value: String): String =
+        if (shouldRedactBodyKey(name)) REDACTED else value
+
     /**
      * Masks values of sensitive keys in a JSON document.
      *

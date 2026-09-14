@@ -44,6 +44,7 @@ kotlin {
                 implementation(project(":scry-crash"))
                 implementation(project(":scry-logs"))
                 implementation(project(":scry-perf"))
+                implementation(project(":scry-analytics"))
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)

@@ -18,6 +18,24 @@ public interface ScryEvent {
 }
 
 /**
+ * Published when the app moves to a different screen.
+ *
+ * Lives in core rather than in the plugin that detects it, because the detector
+ * and the consumer are different plugins: performance knows the screen changed
+ * (it is already hooked into activity, fragment and composable lifecycles) and
+ * analytics needs to know, without either depending on the other.
+ *
+ * [screen] is a plain string for the same reason — core must not learn a
+ * plugin's type to carry a plugin's event.
+ */
+public data class ScreenChangedEvent(
+    public val screen: String,
+    /** Who observed the change: a plugin id, or `"app"` for a direct call. */
+    public val source: String,
+    override val timestampMillis: Long,
+) : ScryEvent
+
+/**
  * In-memory pub/sub between plugins.
  *
  * Buffered and non-blocking: a slow subscriber drops events rather than

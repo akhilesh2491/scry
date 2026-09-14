@@ -3,6 +3,29 @@
 Notable changes per release. Versions follow [semantic versioning](https://semver.org),
 with the caveat stated in the README: the API is expected to move before 1.0.
 
+## Unreleased
+
+### Added
+
+- **`scry-analytics` — analytics event verification.** Every event the app reports through
+  `ScryAnalytics.track(name, params)` is shown with its parameters and the screen it fired
+  on. Declare what a screen should emit (`expect("Checkout") { event("begin_checkout") { … } }`)
+  and Scry turns the feed into a per-screen pass/fail: missing events, missing or misspelled
+  parameters, a number sent as a string, a value outside its allowed set, a duplicate or a
+  forbidden event. `onIssue { }` hands each failure to the app, so a QA run or an instrumented
+  test can fail on it.
+- A verdict belongs to one *visit* to a screen, judged when you navigate away or `settleMillis`
+  after you arrive — an event that has not fired yet is not yet missing. Screens with no
+  expectation are marked `NO SPEC`, never `PASS`.
+- `ScreenChangedEvent` on the core event bus. `PerfPlugin` publishes it from the activity,
+  fragment and composable tracking it already does, and `scry-analytics` consumes it, so events
+  are attributed to screens automatically when both are installed and neither module depends on
+  the other.
+- `Redactor.shouldRedactBodyKey` / `redactBodyValue`, for captured data that arrives as a map
+  rather than as a JSON document. Analytics parameters are redacted on capture with the same
+  rules as request bodies.
+- `ScryModule.ANALYTICS` in the Gradle plugin.
+
 ## 0.3.0
 
 ### Fixed

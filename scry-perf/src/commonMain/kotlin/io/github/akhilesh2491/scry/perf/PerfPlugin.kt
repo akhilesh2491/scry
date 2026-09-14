@@ -2,6 +2,7 @@ package io.github.akhilesh2491.scry.perf
 
 import androidx.compose.runtime.Composable
 import io.github.akhilesh2491.scry.core.PlatformContext
+import io.github.akhilesh2491.scry.core.ScreenChangedEvent
 import io.github.akhilesh2491.scry.core.ScryContextSection
 import io.github.akhilesh2491.scry.core.ScryEvent
 import io.github.akhilesh2491.scry.core.ScryEventBus
@@ -318,10 +319,12 @@ public class PerfPlugin(
      * [recordScreenLoad] directly instead.
      */
     public fun screenEntered(screen: String, kind: ScreenKind = ScreenKind.COMPOSABLE) {
+        val changed = currentScreen != screen
         currentScreen = screen
         pendingScreen = screen
         pendingScreenKind = kind
         pendingScreenStart = monotonicMillis()
+        if (changed) announceScreen(screen)
     }
 
     /**
@@ -332,7 +335,24 @@ public class PerfPlugin(
      * after something happened".
      */
     public fun attributeFramesTo(screen: String) {
+        if (currentScreen == screen) return
         currentScreen = screen
+        announceScreen(screen)
+    }
+
+    /**
+     * Tells the rest of Scry which screen the app is on.
+     *
+     * Perf is the only plugin hooked into activity, fragment and composable
+     * lifecycles, so it is the one that knows — and the analytics plugin needs
+     * exactly this to attribute an event to the screen that fired it. Published
+     * on the bus rather than exposed as a dependency, so neither plugin has to
+     * know the other exists.
+     */
+    private fun announceScreen(screen: String) {
+        events?.publish(
+            ScreenChangedEvent(screen = screen, source = PLUGIN_ID, timestampMillis = nowMillis()),
+        )
     }
 
     /** Frame stats for one screen, aggregated up to this instant. */

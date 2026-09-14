@@ -8,6 +8,8 @@ import android.content.Context
 import io.github.akhilesh2491.scry.network.MockAction
 import io.github.akhilesh2491.scry.network.MockRule
 import io.github.akhilesh2491.scry.network.NetworkPlugin
+import io.github.akhilesh2491.scry.analytics.AnalyticsParamType
+import io.github.akhilesh2491.scry.analytics.AnalyticsPlugin
 import io.github.akhilesh2491.scry.crash.CrashPlugin
 import io.github.akhilesh2491.scry.database.DatabasePlugin
 import io.github.akhilesh2491.scry.logs.LogPlugin
@@ -53,6 +55,25 @@ class SampleApplication : Application() {
                     }
                 },
             )
+            // One screen with a spec, so the sample shows both outcomes: the
+            // "correct" button passes it and the "broken" button fails it
+            // without anyone editing code to see what a failure looks like.
+            plugin(
+                AnalyticsPlugin {
+                    // Judge on navigation only, not on a timer: the sample's
+                    // checkout events are fired by hand, and a 2s countdown
+                    // would fail the screen before anyone reached the button.
+                    settleMillis = 0
+                    expect("MainActivity") {
+                        event("screen_view") { atMostOnce = true }
+                        event("begin_checkout") {
+                            param("cart_value", AnalyticsParamType.NUMBER)
+                            param("currency", AnalyticsParamType.STRING, oneOf = setOf("USD", "EUR"))
+                            param("coupon", required = false)
+                        }
+                    }
+                },
+            )
         }
 
         // Bridges core (no UI dependency) to the Compose shell.
@@ -62,7 +83,7 @@ class SampleApplication : Application() {
 
         seedMockRules()
 
-        ScryLog.i("SampleApp", "Scry installed with 6 plugins")
+        ScryLog.i("SampleApp", "Scry installed with 7 plugins")
         ScryLog.w("SampleApp", "This is a warning, for the level filter")
     }
 

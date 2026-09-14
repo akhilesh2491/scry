@@ -73,6 +73,7 @@ that the API is expressive enough for anyone else's plugin — they use exactly 
 | `scry-crash` | Crash + ANR capture with cross-plugin context, and report sharing |
 | `scry-logs` | In-app logger, Android logcat capture, level/tag filtering |
 | `scry-perf` | Startup, screen-load and frame timing with budgets, sessions and JSON/CSV export |
+| `scry-analytics` | Analytics events with their parameters, attributed per screen and checked against a declared spec |
 | `scry-no-op` | API-identical inert replacement for release builds, parity-gated in CI |
 | `scry-gradle-plugin` | Wires debug/release variants and fails the build if Scry reaches release |
 
@@ -137,6 +138,7 @@ scry-database       = { module = "io.github.akhilesh2491.scry:scry-database", ve
 scry-crash          = { module = "io.github.akhilesh2491.scry:scry-crash", version.ref = "scry" }
 scry-logs           = { module = "io.github.akhilesh2491.scry:scry-logs", version.ref = "scry" }
 scry-perf           = { module = "io.github.akhilesh2491.scry:scry-perf", version.ref = "scry" }
+scry-analytics      = { module = "io.github.akhilesh2491.scry:scry-analytics", version.ref = "scry" }
 scry-no-op          = { module = "io.github.akhilesh2491.scry:scry-no-op", version.ref = "scry" }
 ```
 
@@ -253,9 +255,9 @@ the two can never drift apart.
 
 > The plugin is still at `0.1.0` while the libraries are at `0.3.0`. Because the default library
 > version follows the plugin, applying it as shown wires the `0.1.0` libraries — set
-> `version.set("0.3.0")` in the `scry` block to pull the current ones. `ScryModule.PERF` does not
-> exist in the published plugin yet, so wire `scry-perf` by hand (Steps 2 and 3) until the plugin
-> catches up.
+> `version.set("0.3.0")` in the `scry` block to pull the current ones. `ScryModule.PERF` and
+> `ScryModule.ANALYTICS` do not exist in the published plugin yet, so wire `scry-perf` and
+> `scry-analytics` by hand (Steps 2 and 3) until the plugin catches up.
 
 Apply it **after** the Android application or library plugin: it needs the `debugImplementation`
 and `releaseImplementation` configurations to already exist. If they don't, it logs a warning and
@@ -690,6 +692,77 @@ no R8. Use it to compare your own runs against each other, not as a figure to qu
 
 ---
 
+### Analytics
+
+```kotlin
+plugin(AnalyticsPlugin {
+    expect("Checkout") {
+        event("screen_view") { atMostOnce = true }
+        event("begin_checkout") {
+            param("cart_value", AnalyticsParamType.NUMBER)
+            param("currency", AnalyticsParamType.STRING, oneOf = setOf("USD", "EUR"))
+            param("coupon", required = false)
+        }
+        forbid("debug_ping")
+    }
+})
+```
+
+Then one line inside the wrapper your app already has around its analytics SDK:
+
+```kotlin
+class Analytics(private val firebase: FirebaseAnalytics) {
+    fun track(name: String, params: Map<String, Any?>) {
+        firebase.logEvent(name, params.toBundle())
+        ScryAnalytics.track(name, params)   // <- the whole integration
+    }
+}
+```
+
+Three tabs. **Events** is the live feed — every event with its parameters and the screen it fired
+on, searchable across names, keys and values. **Screens** is the report: one card per visit to a
+screen, with the expectation checklist and a verdict. **Issues** is every failure in one list.
+
+What gets checked, and what each failure looks like:
+
+| Kind | Fires when |
+|---|---|
+| `MISSING_EVENT` | a required event never fired while the screen was open |
+| `MISSING_PARAM` | the event fired without a required parameter (an explicit `null` counts) |
+| `WRONG_TYPE` | `cart_value` arrived as `"49.90"` rather than `49.90` — the mistake every backend accepts and then sums to zero |
+| `DISALLOWED_VALUE` | the value was outside the declared `oneOf` set |
+| `DUPLICATE_EVENT` | an `atMostOnce` event fired twice on one visit |
+| `FORBIDDEN_EVENT` | something you declared `forbid` fired anyway |
+| `UNEXPECTED_EVENT` | an undeclared event fired on a screen with a spec — off by default, since most apps fire cross-cutting events everywhere |
+
+**A verdict belongs to a visit, not to a session.** "Did checkout fire `begin_checkout`?" is a
+question about one particular time you were on checkout; answering it across a whole session hides
+the run where it did not. A visit is judged when you navigate away, or `settleMillis` after you
+arrive (2 s by default) — whichever comes first, because an event that has not fired yet is not yet
+missing. Screens that fire their events after a slow network call should set `settleMillis = 0` and
+be judged on navigation only; the Screens tab also has a **Check now** button for judging the visit
+you are looking at.
+
+A screen with no expectation is marked `NO SPEC`, never `PASS`. An untested screen that looks green
+stays untested.
+
+`onIssue { }` is called for every failure, so a QA build can fail a run, and an instrumented test
+can drive a screen, call `ScryAnalytics.checkNow()`, and assert on what comes back.
+
+#### Limits, stated plainly
+
+- **Events reach Scry only through `ScryAnalytics.track`.** Scry does not hook Firebase, Segment or
+  Amplitude, and does not decode analytics HTTP traffic. An event the app sends without telling
+  Scry is invisible here.
+- **Screen attribution is automatic only when `PerfPlugin` is installed** — it already tracks
+  activities, fragments and composables, and publishes a `ScreenChangedEvent` this plugin listens
+  for. Without it, call `ScryAnalytics.screenEntered("Checkout")`.
+- Parameter values are redacted on capture with the same `Redactor` as everything else, so a
+  `user_token` parameter never reaches the store, the screen or an export.
+- Events are capped in memory (1000) and **not** persisted unless you set `persist = true`.
+
+---
+
 ## Safety
 
 An on-device debugger that reaches production is a security incident, not a bug. Scry is built
@@ -760,6 +833,7 @@ scry-database/          SQLite inspector
 scry-crash/             crash + ANR capture
 scry-logs/              in-app logger + logcat capture
 scry-perf/              startup, screen-load and frame timing
+scry-analytics/         analytics event capture + per-screen spec checking
 scry-no-op/             inert mirror of all of the above
 scry-gradle-plugin/     variant wiring + release-leak check (its own included build)
 build-logic/            convention plugins (also an included build)
@@ -806,7 +880,7 @@ val plugin = MyPlugin().apply { onInstall(ScryTesting.scope()) }
 ## Roadmap
 
 **Done:** network (Ktor + OkHttp), preferences, database, crashes/ANRs, logs, performance
-(startup / screen load / frames), export from every screen (HAR, cURL, JSON, CSV, text),
+(startup / screen load / frames), analytics event verification, export from every screen (HAR, cURL, JSON, CSV, text),
 per-screen clear/delete, no-op + parity gate, Gradle plugin, Android + desktop + iOS.
 
 **Published:** `0.3.0` on Maven Central, signed, across Android, JVM desktop and iOS · the Gradle

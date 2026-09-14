@@ -47,6 +47,7 @@ dependencies {
     debugImplementation(project(":scry-crash"))
     debugImplementation(project(":scry-logs"))
     debugImplementation(project(":scry-perf"))
+    debugImplementation(project(":scry-analytics"))
     debugImplementation(project(":scry-network-ktor"))
     debugImplementation(project(":scry-network-okhttp"))
     releaseImplementation(project(":scry-no-op"))
