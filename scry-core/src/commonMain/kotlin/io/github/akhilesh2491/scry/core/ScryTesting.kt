@@ -36,6 +36,8 @@ public object ScryTesting {
             plugins = emptyList(),
             redactor = redactor,
             allowInReleaseBuilds = true,
+            // Nothing on screen: a test harness has no window to put a bubble in.
+            launchers = LauncherConfig.NONE,
         ),
         providedContext = context,
     )

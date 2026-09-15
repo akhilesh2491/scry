@@ -134,11 +134,52 @@ public class ScryContextRegistry internal constructor() {
     public fun collect(): List<ScryContextSection> = emptyList()
 }
 
+public enum class BubbleCorner {
+    TOP_START,
+    TOP_END,
+    BOTTOM_START,
+    BOTTOM_END,
+}
+
+/**
+ * Inert launcher settings.
+ *
+ * What this stub removes is worth naming: the real module registers activity
+ * lifecycle callbacks, posts an ongoing notification and publishes a launcher
+ * shortcut. A release build does none of that — there is nothing to open.
+ */
+public class LauncherConfig internal constructor(
+    public val bubble: Boolean,
+    public val notification: Boolean,
+    public val appShortcut: Boolean,
+    public val launcherIcon: Boolean,
+    public val shake: Boolean,
+    public val bubbleCorner: BubbleCorner,
+) {
+    public companion object {
+        public val DEFAULT: LauncherConfig =
+            LauncherConfig(false, false, false, false, false, BubbleCorner.BOTTOM_END)
+        public val NONE: LauncherConfig = DEFAULT
+    }
+
+    override fun toString(): String = "LauncherConfig(disabled)"
+}
+
+public class LauncherConfigBuilder internal constructor() {
+    public var bubble: Boolean = false
+    public var notification: Boolean = false
+    public var appShortcut: Boolean = false
+    public var launcherIcon: Boolean = false
+    public var shake: Boolean = false
+    public var bubbleCorner: BubbleCorner = BubbleCorner.BOTTOM_END
+}
+
 public class ScryConfig internal constructor(
     public val retention: Retention,
     public val plugins: List<ScryPlugin>,
     public val redactor: Redactor,
     public val allowInReleaseBuilds: Boolean,
+    public val launchers: LauncherConfig = LauncherConfig.DEFAULT,
 )
 
 public class ScryConfigBuilder internal constructor() {
@@ -146,6 +187,7 @@ public class ScryConfigBuilder internal constructor() {
     public var allowInReleaseBuilds: Boolean = false
     public fun plugin(plugin: ScryPlugin): Unit = Unit
     public fun redaction(configure: RedactorBuilder.() -> Unit): Unit = Unit
+    public fun launchers(configure: LauncherConfigBuilder.() -> Unit): Unit = Unit
 }
 
 public class ScryInstance internal constructor() {
@@ -164,6 +206,12 @@ public class ScryInstaller internal constructor() {
     public fun allowInReleaseBuilds(allow: Boolean): ScryInstaller = this
     public fun redactHeaders(vararg names: String): ScryInstaller = this
     public fun redactBodyKeys(vararg keys: String): ScryInstaller = this
+    public fun bubble(enabled: Boolean): ScryInstaller = this
+    public fun notification(enabled: Boolean): ScryInstaller = this
+    public fun appShortcut(enabled: Boolean): ScryInstaller = this
+    public fun launcherIcon(enabled: Boolean): ScryInstaller = this
+    public fun shake(enabled: Boolean): ScryInstaller = this
+    public fun bubbleCorner(corner: BubbleCorner): ScryInstaller = this
     public fun install(): ScryInstance? = null
 }
 

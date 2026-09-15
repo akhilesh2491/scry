@@ -106,6 +106,7 @@ public object Scry {
             return null
         }
 
+        runCatching { stopLaunchers() }
         current?.shutdown()
 
         val store = ScryStore.open(
@@ -120,6 +121,12 @@ public object Scry {
         )
         instance.installPlugins()
         current = instance
+
+        // Never the reason install fails: a launcher is a convenience, and an
+        // app whose debug build crashes because a notification could not be
+        // posted is worse off than one with no bubble.
+        runCatching { context.startLaunchers(config.launchers) }
+
         return instance
     }
 
@@ -152,6 +159,7 @@ public object Scry {
     /** Tears down the installation and releases its resources. */
     @JvmStatic
     public fun uninstall() {
+        runCatching { stopLaunchers() }
         current?.shutdown()
         current = null
     }

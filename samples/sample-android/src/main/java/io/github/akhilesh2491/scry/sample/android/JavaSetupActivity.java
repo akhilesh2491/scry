@@ -6,7 +6,6 @@ import android.os.Bundle;
 import io.github.akhilesh2491.scry.core.Retention;
 import io.github.akhilesh2491.scry.core.Scry;
 import io.github.akhilesh2491.scry.core.ScryAndroid;
-import io.github.akhilesh2491.scry.core.ShakeToOpen;
 import io.github.akhilesh2491.scry.network.NetworkPlugin;
 import io.github.akhilesh2491.scry.network.okhttp.ScryInterceptor;
 
@@ -26,14 +25,15 @@ public final class JavaSetupActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Builder facade — no Kotlin DSL, no lambdas with receivers.
+        // Builder facade — no Kotlin DSL, no lambdas with receivers. The
+        // launcher surfaces are on by default; shake is the one that is not, so
+        // it gets a setter of its own.
         ScryAndroid.installer(this)
                 .retention(Retention.ofHours(12))
                 .redactHeaders("X-Internal-Trace")
                 .addPlugin(new NetworkPlugin())
+                .shake(true)
                 .install();
-
-        new ShakeToOpen(this).start();
 
         OkHttpClient client = new OkHttpClient.Builder()
                 .addInterceptor(new ScryInterceptor())

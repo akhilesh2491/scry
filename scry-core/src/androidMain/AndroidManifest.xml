@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      For the launcher notification. Merged into debug variants only, because the
+      Gradle plugin puts scry-core on debugImplementation and the no-op — which
+      declares nothing — takes its place in release.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application>
         <!--
           Authority is derived from the host app id so it cannot collide with a
@@ -24,6 +31,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/scry_file_paths" />
         </provider>
+
+        <!--
+          Backs the launcher notification's "Clear data" action. exported=false:
+          it wipes captured data, and nothing outside this app may ask for that.
+        -->
+        <receiver
+            android:name="io.github.akhilesh2491.scry.core.ScryLauncherReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

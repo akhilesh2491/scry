@@ -55,8 +55,9 @@ private val httpClient = HttpClient(Darwin) { install(ScryKtor) }
 /**
  * Installs Scry and returns the sample's root view controller.
  *
- * Called once from Swift. Everything Scry needs on iOS is here: install,
- * connect the UI, and let `Scry.show()` do the rest.
+ * Called once from Swift. Everything Scry needs on iOS is here: install and
+ * connect the UI. The floating bubble comes up on its own, so the sample never
+ * has to tell anyone which gesture opens Scry.
  */
 public fun MainViewController(): UIViewController {
     seedPreferences()

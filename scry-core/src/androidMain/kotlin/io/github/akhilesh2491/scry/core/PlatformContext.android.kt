@@ -1,5 +1,6 @@
 package io.github.akhilesh2491.scry.core
 
+import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import java.io.File
@@ -24,6 +25,46 @@ internal actual fun PlatformContext.isDebuggableBuild(): Boolean =
     (androidContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
 internal actual fun PlatformContext.applicationId(): String = androidContext.packageName
+
+// Held so `stopLaunchers` can undo exactly what was started, including the shake
+// detector — an accelerometer listener that outlives the installation is the one
+// leak this library cannot defend. Both are application-scoped, so neither
+// retains an Activity.
+private var startedShakeToOpen: ShakeToOpen? = null
+private var launcherContext: Context? = null
+
+internal actual fun PlatformContext.startLaunchers(config: LauncherConfig) {
+    val context = androidContext
+    launcherContext = context
+
+    if (config.bubble) {
+        // Only an Application can hand out lifecycle callbacks. A host that
+        // installed from an Activity context still gets every other surface.
+        (context as? Application)?.let { ScryBubble.attach(it, config.bubbleCorner) }
+    }
+    if (config.notification) ScryNotification.show(context)
+    if (config.appShortcut) ScryAppShortcut.add(context)
+    // Applied both ways, unlike the others. Component enablement is sticky —
+    // it survives reinstalls — so a developer who tried the drawer icon once
+    // could not get rid of it by flipping the flag back, which is exactly what
+    // they would try.
+    if (config.launcherIcon) ScryLauncherIcon.enable(context) else ScryLauncherIcon.disable(context)
+    if (config.shake) startedShakeToOpen = ShakeToOpen(context).also { it.start() }
+}
+
+internal actual fun stopLaunchers() {
+    startedShakeToOpen?.stop()
+    startedShakeToOpen = null
+    ScryBubble.detach()
+    launcherContext?.let { context ->
+        ScryNotification.hide(context)
+        ScryAppShortcut.remove(context)
+        // The drawer icon is left alone on purpose: it is an explicit, sticky
+        // choice by the host (often "this is the QA build"), and uninstall is
+        // usually a prelude to installing again.
+    }
+    launcherContext = null
+}
 
 /**
  * Installs Scry from an Android [Context].

@@ -2,7 +2,6 @@ package io.github.akhilesh2491.scry.sample.android
 
 import android.app.Application
 import kotlin.time.Duration.Companion.seconds
-import io.github.akhilesh2491.scry.core.ShakeToOpen
 import io.github.akhilesh2491.scry.core.install
 import android.content.Context
 import io.github.akhilesh2491.scry.network.MockAction
@@ -22,13 +21,11 @@ import io.github.akhilesh2491.scry.core.enableScryUi
 /**
  * The whole Android integration, in one place.
  *
- * Three lines: install, connect the UI, start a launcher. Anything more than
- * that and teams will not adopt it.
+ * Two lines: install, connect the UI. The bubble, the notification and the app
+ * shortcut come up on their own — anything more than that and teams will not
+ * adopt it.
  */
 class SampleApplication : Application() {
-
-    lateinit var shakeToOpen: ShakeToOpen
-        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -37,6 +34,11 @@ class SampleApplication : Application() {
         seedDatabase()
 
         Scry.install(this) {
+            // Everything except shake is already on. Shake is opt-in because it
+            // holds an accelerometer listener; the sample turns it on to
+            // demonstrate it alongside the bubble.
+            launchers { shake = true }
+
             plugin(NetworkPlugin { maxBodyBytes = 128 * 1024 })
             plugin(PreferencesPlugin())
             // File mode with writes enabled: this sample database is not under
@@ -78,8 +80,6 @@ class SampleApplication : Application() {
 
         // Bridges core (no UI dependency) to the Compose shell.
         enableScryUi(this)
-
-        shakeToOpen = ShakeToOpen(this).also { it.start() }
 
         seedMockRules()
 

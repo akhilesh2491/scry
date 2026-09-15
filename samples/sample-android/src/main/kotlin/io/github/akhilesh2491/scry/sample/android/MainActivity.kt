@@ -153,7 +153,8 @@ private fun SampleScreen(ktorClient: HttpClient, okHttpClient: OkHttpClient) {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "Generate traffic and failures, then shake the device to inspect them.",
+                "Generate traffic and failures, then tap the Scry bubble to inspect " +
+                    "them — or the notification, the app-icon shortcut, or a shake.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 20.dp),

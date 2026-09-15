@@ -12,6 +12,28 @@
             android:exported="false"
             android:label="Scry"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+
+        <!--
+          The optional launcher-drawer icon. Ships disabled: enabling it is a
+          deliberate call to ScryLauncherIcon.enable(), because the launcher can
+          only start an exported component and this one forwards to the activity
+          above. See ScryLauncherActivity for why it is a trampoline.
+        -->
+        <activity
+            android:name="io.github.akhilesh2491.scry.ui.ScryLauncherActivity"
+            android:enabled="false"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@drawable/scry_ic_drawer"
+            android:label="Scry"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

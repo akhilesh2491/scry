@@ -30,3 +30,15 @@ internal actual fun PlatformContext.scryStorageDirectory(): String =
 internal actual fun PlatformContext.isDebuggableBuild(): Boolean = true
 
 internal actual fun PlatformContext.applicationId(): String = applicationId
+
+/**
+ * Nothing to start here.
+ *
+ * A desktop tray icon and a floating launcher window are Compose windows, and a
+ * Compose window can only be created inside `application { }` — code Scry does
+ * not own. `ScryDesktopWindow`, which hosts already place there, reads
+ * [ScryConfig.launchers] and puts them up itself.
+ */
+internal actual fun PlatformContext.startLaunchers(config: LauncherConfig): Unit = Unit
+
+internal actual fun stopLaunchers(): Unit = Unit

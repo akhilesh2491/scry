@@ -3,6 +3,11 @@ plugins {
 }
 
 kotlin {
+    // The optional launcher-drawer icon is a drawable resource.
+    androidLibrary {
+        androidResources.enable = true
+    }
+
     sourceSets {
         commonMain.dependencies {
             api(project(":scry-core"))

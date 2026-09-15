@@ -23,6 +23,7 @@ public class ScryInstaller internal constructor(private val context: PlatformCon
     private val plugins = mutableListOf<ScryPlugin>()
     private val extraRedactedHeaders = mutableListOf<String>()
     private val extraRedactedBodyKeys = mutableListOf<String>()
+    private val launchers = LauncherConfigBuilder()
 
     public fun retention(retention: Retention): ScryInstaller = apply {
         this.retention = retention
@@ -47,6 +48,36 @@ public class ScryInstaller internal constructor(private val context: PlatformCon
         extraRedactedBodyKeys += keys
     }
 
+    /** See [LauncherConfig.bubble]. On by default. */
+    public fun bubble(enabled: Boolean): ScryInstaller = apply {
+        launchers.bubble = enabled
+    }
+
+    /** See [LauncherConfig.notification]. On by default. */
+    public fun notification(enabled: Boolean): ScryInstaller = apply {
+        launchers.notification = enabled
+    }
+
+    /** See [LauncherConfig.appShortcut]. On by default. */
+    public fun appShortcut(enabled: Boolean): ScryInstaller = apply {
+        launchers.appShortcut = enabled
+    }
+
+    /** See [LauncherConfig.launcherIcon] — read it before turning this on. */
+    public fun launcherIcon(enabled: Boolean): ScryInstaller = apply {
+        launchers.launcherIcon = enabled
+    }
+
+    /** See [LauncherConfig.shake]. Off by default. */
+    public fun shake(enabled: Boolean): ScryInstaller = apply {
+        launchers.shake = enabled
+    }
+
+    /** See [LauncherConfig.bubbleCorner]. */
+    public fun bubbleCorner(corner: BubbleCorner): ScryInstaller = apply {
+        launchers.bubbleCorner = corner
+    }
+
     /**
      * Installs Scry.
      *
@@ -60,6 +91,14 @@ public class ScryInstaller internal constructor(private val context: PlatformCon
         redaction {
             redactHeaders(*this@ScryInstaller.extraRedactedHeaders.toTypedArray())
             redactBodyKeys(*this@ScryInstaller.extraRedactedBodyKeys.toTypedArray())
+        }
+        launchers {
+            bubble = this@ScryInstaller.launchers.bubble
+            notification = this@ScryInstaller.launchers.notification
+            appShortcut = this@ScryInstaller.launchers.appShortcut
+            launcherIcon = this@ScryInstaller.launchers.launcherIcon
+            shake = this@ScryInstaller.launchers.shake
+            bubbleCorner = this@ScryInstaller.launchers.bubbleCorner
         }
     }
 }

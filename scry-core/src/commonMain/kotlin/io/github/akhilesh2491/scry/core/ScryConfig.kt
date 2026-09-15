@@ -46,6 +46,7 @@ public class ScryConfig internal constructor(
     public val plugins: List<ScryPlugin>,
     public val redactor: Redactor,
     public val allowInReleaseBuilds: Boolean,
+    public val launchers: LauncherConfig,
 )
 
 /**
@@ -71,6 +72,7 @@ public class ScryConfigBuilder internal constructor() {
 
     private val pluginList = mutableListOf<ScryPlugin>()
     private var redactorBuilder: RedactorBuilder = RedactorBuilder()
+    private var launcherBuilder: LauncherConfigBuilder = LauncherConfigBuilder()
 
     /** Register a plugin. Order determines display order in the UI. */
     public fun plugin(plugin: ScryPlugin) {
@@ -85,10 +87,25 @@ public class ScryConfigBuilder internal constructor() {
         redactorBuilder.configure()
     }
 
+    /**
+     * Choose how Scry can be opened. See [LauncherConfig] for the defaults.
+     *
+     * ```kotlin
+     * launchers {
+     *     notification = false   // bubble only
+     *     shake = true
+     * }
+     * ```
+     */
+    public fun launchers(configure: LauncherConfigBuilder.() -> Unit) {
+        launcherBuilder.configure()
+    }
+
     internal fun build(): ScryConfig = ScryConfig(
         retention = retention,
         plugins = pluginList.toList(),
         redactor = redactorBuilder.build(),
         allowInReleaseBuilds = allowInReleaseBuilds,
+        launchers = launcherBuilder.build(),
     )
 }

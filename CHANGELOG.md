@@ -7,6 +7,24 @@ with the caveat stated in the README: the API is expected to move before 1.0.
 
 ### Added
 
+- **Launchers — Scry is now visible without being told about.** Shake was the only way in on
+  Android, and it is undiscoverable: it needs the emulator's extended controls, it is unreliable
+  through a case, and it does not exist on iOS or desktop. After `Scry.install(...)` you now get a
+  draggable **bubble** over the app (Android and iOS), an ongoing **notification** (Android) or
+  **tray icon** (desktop), and an app-icon **shortcut** (Android and iOS) — no extra code.
+- `launchers { }` in the install DSL, with `bubble`, `notification`, `appShortcut`, `launcherIcon`,
+  `shake` and `bubbleCorner`; matching `.bubble(…)` / `.shake(…)` setters on the Java builder.
+  Everything is on except `launcherIcon` and `shake`.
+- The bubble is drawn into the app's own window — no `SYSTEM_ALERT_WINDOW`. It snaps to the nearer
+  edge, stays clear of the system bars, remembers its position across launches, hides on long-press
+  and never draws over the Scry UI itself. On iOS it is its own button-sized `UIWindow`, so touches
+  anywhere else still reach the app.
+- `ScryBubble`, `ScryNotification`, `ScryAppShortcut` and `ScryLauncherIcon` (Android),
+  `ScryBubble` and `ScryQuickAction` (iOS), `ScryTray` (desktop), for hosts that want to drive a
+  surface directly.
+- An optional launcher-drawer icon, off by default: it requires an `exported="true"` component, so
+  it enables a small trampoline that re-checks the build is debuggable, and the activity that shows
+  request bodies, preferences and database rows stays unexported.
 - **`scry-analytics` — analytics event verification.** Every event the app reports through
   `ScryAnalytics.track(name, params)` is shown with its parameters and the screen it fired
   on. Declare what a screen should emit (`expect("Checkout") { event("begin_checkout") { … } }`)
@@ -25,6 +43,12 @@ with the caveat stated in the README: the API is expected to move before 1.0.
   rather than as a JSON document. Analytics parameters are redacted on capture with the same
   rules as request bodies.
 - `ScryModule.ANALYTICS` in the Gradle plugin.
+
+### Changed
+
+- `ScryDesktopWindow` is now an extension on `ApplicationScope`, which is where a Compose tray icon
+  has to be declared. Existing call sites are already inside `application { }`, so they keep
+  compiling unchanged.
 
 ## 0.3.0
 

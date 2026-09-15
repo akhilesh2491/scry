@@ -22,3 +22,15 @@ internal expect fun PlatformContext.isDebuggableBuild(): Boolean
 
 /** Best-effort application identifier, used to namespace desktop storage. */
 internal expect fun PlatformContext.applicationId(): String
+
+/**
+ * Puts the enabled launcher surfaces on screen.
+ *
+ * Called by [Scry.install]. Desktop has no actual work to do here — its tray and
+ * launcher window must be declared inside `application { }`, so the desktop
+ * `ScryDesktopWindow` reads [ScryConfig.launchers] itself.
+ */
+internal expect fun PlatformContext.startLaunchers(config: LauncherConfig)
+
+/** Removes whatever [startLaunchers] put on screen. Called by [Scry.uninstall]. */
+internal expect fun stopLaunchers()

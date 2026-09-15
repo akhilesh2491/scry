@@ -38,6 +38,7 @@ SYNTHETIC_TYPES = re.compile(
 INTERNAL_NAMES = {
     "ScryLock", "TestScryScope",
     "currentTimeMillis", "scryStorageDirectory", "isDebuggableBuild", "applicationId",
+    "startLaunchers", "stopLaunchers",
     "redactWith", "readTextOrNull",
     "formatBytes", "prettyPrintJson", "NetworkScreen",
     "parseAs", "PreferencesScreen", "discoverStores", "jsonExport",

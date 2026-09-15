@@ -82,7 +82,7 @@ fun main() = application {
 @Composable
 private fun SampleScreen() {
     val scope = rememberCoroutineScope()
-    var lastResult by remember { mutableStateOf("Fire a request, then press Ctrl/Cmd+Shift+S.") }
+    var lastResult by remember { mutableStateOf("Fire a request, then use the Scry tray icon or Ctrl/Cmd+Shift+S.") }
 
     fun fire(label: String, block: suspend () -> String) {
         scope.launch {

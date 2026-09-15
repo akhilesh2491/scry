@@ -63,7 +63,7 @@ that the API is expressive enough for anyone else's plugin — they use exactly 
 
 | Artifact | What it does |
 |---|---|
-| `scry-core` | Plugin API, config DSL + Java builder, SQLite-backed store with retention, redaction, sharing, shake-to-open |
+| `scry-core` | Plugin API, config DSL + Java builder, SQLite-backed store with retention, redaction, sharing, launchers (bubble, notification, shortcut, shake) |
 | `scry-ui` | Compose Multiplatform shell — plugin list, navigation, theme, shared screen bar / share / confirm-delete actions, Android activity host, desktop window |
 | `scry-network` | Engine-agnostic `NetworkTransaction`, capture plugin, list/detail UI, HAR + cURL export |
 | `scry-network-ktor` | Ktor client plugin — the multiplatform capture path |
@@ -204,20 +204,22 @@ class MyApp : Application() {
         super.onCreate()
         Scry.install(this) { plugin(NetworkPlugin()) }
         enableScryUi(this)
-        ShakeToOpen(this).start()
     }
 }
 ```
+
+That is the whole integration. A floating **Scry bubble**, an ongoing **notification** and an
+**app-icon shortcut** come up on their own — see [How to open Scry](#how-to-open-scry).
 
 Then attach the capture point for whatever you use — an OkHttp interceptor, the Ktor plugin, a
 `SupportSQLiteOpenHelper`. Nothing is captured until you do.
 
 ### Step 5 — Verify
 
-Run a debug build, exercise some traffic, and **shake the device** (or `Scry.show()` from anywhere,
-or **Ctrl/Cmd+Shift+S** on desktop). You should get the plugin list with live badges. If the UI
-never appears, the usual cause is `enableScryUi(...)` not being called — `Scry.install` alone
-captures data but registers no UI.
+Run a debug build, exercise some traffic, and **tap the Scry bubble** in the corner of the screen
+(or the notification, or `Scry.show()` from anywhere, or **Ctrl/Cmd+Shift+S** on desktop). You
+should get the plugin list with live badges. If the UI never appears, the usual cause is
+`enableScryUi(...)` not being called — `Scry.install` alone captures data but registers no UI.
 
 To confirm the release side is clean:
 
@@ -305,7 +307,6 @@ class MyApp : Application() {
         }
 
         enableScryUi(this)          // connect the Compose UI
-        ShakeToOpen(this).start()   // shake to open
     }
 }
 
@@ -323,9 +324,8 @@ ScryAndroid.installer(context)
     .retention(Retention.ofHours(12))
     .redactHeaders("X-Internal-Trace")
     .addPlugin(new NetworkPlugin())
+    .shake(true)            // the bubble, notification and shortcut are already on
     .install();
-
-new ShakeToOpen(context).start();
 
 OkHttpClient client = new OkHttpClient.Builder()
     .addInterceptor(new ScryInterceptor())
@@ -342,7 +342,7 @@ val scry = Scry.install(PlatformContext(applicationId = "my-app")) { plugin(Netw
 
 application {
     Window(onCloseRequest = ::exitApplication, onKeyEvent = ::onScryHotkey) { App() }
-    scry?.let { ScryDesktopWindow(it) }   // renders only when shown
+    scry?.let { ScryDesktopWindow(it) }   // tray icon now, window when shown
 }
 ```
 
@@ -355,7 +355,19 @@ enableScryUi()   // presents over the key window when Scry.show() is called
 
 Or present it yourself: `ScryUIViewController(instance)` returns a `UIViewController`.
 
-Open with **shake** on Android, **Ctrl/Cmd+Shift+S** on desktop, `Scry.show()` from anywhere.
+On iOS the bubble floats over the app in its own `UIWindow`, sized to the button so touches
+anywhere else reach your app untouched. To wire the home-screen quick action too, forward it from
+the app delegate:
+
+```swift
+func application(
+    _ application: UIApplication,
+    performActionFor shortcutItem: UIApplicationShortcutItem,
+    completionHandler: @escaping (Bool) -> Void
+) {
+    completionHandler(ScryQuickAction.shared.handle(shortcutItem: shortcutItem))
+}
+```
 
 There is a runnable sample at `samples/sample-ios` (Compose shared code + a SwiftUI host generated
 by [XcodeGen](https://github.com/yonaskolb/XcodeGen)):
@@ -397,6 +409,63 @@ SwiftUI host, all four plugins register with live badges, and captured traffic l
 - **`NSUserDefaults` named suites cannot be discovered** — the API offers no enumeration. Register
   them with `store(NSUserDefaults(suiteName = "…").asScryStore("…"))`.
 - **No `iosX64`.** `androidx.sqlite` publishes no Intel-simulator variant.
+
+---
+
+## How to open Scry
+
+Scry puts itself in front of you. After `Scry.install(...)`, these are live with no extra code:
+
+| | Android | iOS | Desktop |
+|---|---|---|---|
+| **Bubble** — draggable button over your app | ✅ on | ✅ on | — |
+| **Notification / tray** — works from the background | ✅ on | — | ✅ on (tray) |
+| **App shortcut** — long-press the app icon | ✅ on | ✅ on¹ | — |
+| **Drawer icon** — a "Scry" icon of its own | opt-in | — | — |
+| **Shake** | opt-in | — | — |
+| **Hotkey** — `Ctrl/Cmd+Shift+S` | — | — | ✅ on² |
+| `Scry.show()` | ✅ | ✅ | ✅ |
+
+¹ needs one line in your app delegate, [shown above](#ios).  
+² needs `onKeyEvent = ::onScryHotkey` on your window.
+
+Everything is one block:
+
+```kotlin
+Scry.install(this) {
+    launchers {
+        bubble = true          // default
+        notification = true    // default
+        appShortcut = true     // default
+        launcherIcon = false   // default — see below
+        shake = false          // default — holds an accelerometer listener
+        bubbleCorner = BubbleCorner.BOTTOM_END
+    }
+}
+```
+
+Java: `.bubble(false)`, `.notification(true)`, `.shake(true)` … on `ScryAndroid.installer(context)`.
+
+**Why these are on by default and shake is not.** Shake registers an accelerometer listener for the
+life of the process — a background cost the caller did not ask for, and the reason it stays opt-in.
+A view in your own window and a silent ongoing notification cost nothing while nobody touches them,
+and a debug tool nobody can find is a debug tool nobody uses.
+
+**The bubble** is added to the resumed activity's own `android.R.id.content` (iOS: its own
+button-sized `UIWindow`), so it needs **no `SYSTEM_ALERT_WINDOW`** and passes no touches of yours.
+Drag it anywhere — it snaps to the nearer edge, stays clear of the system bars, and remembers where
+you left it. Long-press to hide it until the next launch. It never draws over the Scry UI itself.
+
+**The notification** is `IMPORTANCE_LOW`, `VISIBILITY_SECRET` and silent, and carries a "Clear data"
+action. On API 33+ without `POST_NOTIFICATIONS` granted it is skipped silently rather than
+prompting — the bubble covers that case.
+
+**The drawer icon is the one opt-in surface**, because the launcher can only start an
+`exported="true"` component and the Scry UI deliberately is not one: it shows request bodies,
+preferences and database rows. Turning it on enables a small exported trampoline
+(`ScryLauncherActivity`) that re-checks the build is debuggable and forwards; the activity holding
+the data stays unexported either way. The setting is sticky across reinstalls, so
+`launcherIcon = false` actively turns a previously-enabled icon back off.
 
 ---
 
@@ -812,8 +881,8 @@ Requires **JDK 17** and the Android SDK (compileSdk 37, minSdk 23).
 
 ```bash
 ./gradlew build                                   # everything: Android + desktop, tests, parity gate
-./gradlew :samples:sample-desktop:run             # desktop sample — Ctrl/Cmd+Shift+S opens Scry
-./gradlew :samples:sample-android:installDebug    # Android sample — shake to open
+./gradlew :samples:sample-desktop:run             # desktop sample — tray icon or Ctrl/Cmd+Shift+S
+./gradlew :samples:sample-android:installDebug    # Android sample — tap the bubble
 ./gradlew :samples:sample-android:assembleRelease # proves the no-op swap compiles
 ```
 
