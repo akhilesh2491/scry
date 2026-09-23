@@ -10,9 +10,10 @@ plugins {
 }
 
 group = "io.github.akhilesh2491.scry"
-// Minor rather than patch: adds public API to scry-ui (ScryScreenBar,
-// ScryShareAction, ScryDestructiveAction, ScryCard, ScryStat). See CHANGELOG.md.
-version = "0.3.0"
+// Minor rather than patch: adds a new published module (scry-analytics) and
+// public API for the launcher surfaces (launchers { }, ScryBubble and friends).
+// See CHANGELOG.md.
+version = "0.4.0"
 
 subprojects {
     group = rootProject.group

@@ -5,7 +5,7 @@
 Chucker's network inspection, Flipper's storage tools, Pluto's plugin model — KMP-first, Java-friendly,
 and built so it cannot ship to your users by accident.
 
-> **Status: early release (`0.3.0`), available on Maven Central.** Expect the API to move before 1.0.
+> **Status: early release (`0.4.0`), available on Maven Central.** Expect the API to move before 1.0.
 > Android, JVM desktop and iOS are all verified on-device/simulator with running sample apps.
 >
 > **Scry installs into apps that have Kotlin shared code.** Kotlin and Java callers are both
@@ -85,7 +85,7 @@ Targets: **Android** (minSdk 23), **JVM desktop**, and **iOS** (arm64 + simulato
 
 ### Requirements
 
-`0.3.0` is **built and verified against** these versions. Older ones may work but are untested —
+`0.4.0` is **built and verified against** these versions. Older ones may work but are untested —
 if you are on an earlier Kotlin or AGP and hit a resolution failure, that is the first thing to check.
 
 | | |
@@ -126,7 +126,7 @@ In `gradle/libs.versions.toml`, so the modules can never drift apart:
 
 ```toml
 [versions]
-scry = "0.3.0"
+scry = "0.4.0"
 
 [libraries]
 scry-core           = { module = "io.github.akhilesh2491.scry:scry-core", version.ref = "scry" }
@@ -255,9 +255,9 @@ confusing "nothing happens" rather than a compile error — plus whichever modul
 `scry-no-op` to `releaseImplementation`. Library versions default to the plugin's own version, so
 the two can never drift apart.
 
-> The plugin is still at `0.1.0` while the libraries are at `0.3.0`. Because the default library
+> The plugin is still at `0.1.0` while the libraries are at `0.4.0`. Because the default library
 > version follows the plugin, applying it as shown wires the `0.1.0` libraries — set
-> `version.set("0.3.0")` in the `scry` block to pull the current ones. `ScryModule.PERF` and
+> `version.set("0.4.0")` in the `scry` block to pull the current ones. `ScryModule.PERF` and
 > `ScryModule.ANALYTICS` do not exist in the published plugin yet, so wire `scry-perf` and
 > `scry-analytics` by hand (Steps 2 and 3) until the plugin catches up.
 
@@ -949,10 +949,11 @@ val plugin = MyPlugin().apply { onInstall(ScryTesting.scope()) }
 ## Roadmap
 
 **Done:** network (Ktor + OkHttp), preferences, database, crashes/ANRs, logs, performance
-(startup / screen load / frames), analytics event verification, export from every screen (HAR, cURL, JSON, CSV, text),
+(startup / screen load / frames), analytics event verification, launchers (bubble, notification,
+tray, shortcut, shake), export from every screen (HAR, cURL, JSON, CSV, text),
 per-screen clear/delete, no-op + parity gate, Gradle plugin, Android + desktop + iOS.
 
-**Published:** `0.3.0` on Maven Central, signed, across Android, JVM desktop and iOS · the Gradle
+**Published:** `0.4.0` on Maven Central, signed, across Android, JVM desktop and iOS · the Gradle
 plugin at `0.1.0` on the
 [Gradle Plugin Portal](https://plugins.gradle.org/plugin/io.github.akhilesh2491.scry).
 

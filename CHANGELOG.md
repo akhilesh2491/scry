@@ -3,7 +3,7 @@
 Notable changes per release. Versions follow [semantic versioning](https://semver.org),
 with the caveat stated in the README: the API is expected to move before 1.0.
 
-## Unreleased
+## 0.4.0
 
 ### Added
 
@@ -49,6 +49,13 @@ with the caveat stated in the README: the API is expected to move before 1.0.
 - `ScryDesktopWindow` is now an extension on `ApplicationScope`, which is where a Compose tray icon
   has to be declared. Existing call sites are already inside `application { }`, so they keep
   compiling unchanged.
+
+### Compatibility
+
+Nothing was removed. `ScryDesktopWindow` moving to an `ApplicationScope` receiver is a binary-
+incompatible change for desktop hosts, but source-compatible: recompiling is enough, and call
+sites need no edit. Everything else is additive, and `scry-no-op` mirrors the new declarations.
+Apps upgrading from 0.3.0 that do not use the desktop window need no changes at all.
 
 ## 0.3.0
 
