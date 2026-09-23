@@ -5,7 +5,10 @@ plugins {
 }
 
 group = "io.github.akhilesh2491.scry"
-version = "0.1.0"
+// Tracks the library version rather than counting its own releases. The
+// extension defaults `scry { version }` to this, so a plugin left behind on
+// 0.1.0 silently wires 0.1.0 libraries into an otherwise current build.
+version = "0.4.0"
 
 kotlin {
     jvmToolchain(libs.versions.jvmToolchain.get().toInt())

@@ -241,7 +241,7 @@ release runtime classpath:
 ```kotlin
 plugins {
     id("com.android.application")
-    id("io.github.akhilesh2491.scry") version "0.1.0"
+    id("io.github.akhilesh2491.scry") version "0.4.0"
 }
 
 scry {
@@ -255,11 +255,8 @@ confusing "nothing happens" rather than a compile error — plus whichever modul
 `scry-no-op` to `releaseImplementation`. Library versions default to the plugin's own version, so
 the two can never drift apart.
 
-> The plugin is still at `0.1.0` while the libraries are at `0.4.0`. Because the default library
-> version follows the plugin, applying it as shown wires the `0.1.0` libraries — set
-> `version.set("0.4.0")` in the `scry` block to pull the current ones. `ScryModule.PERF` and
-> `ScryModule.ANALYTICS` do not exist in the published plugin yet, so wire `scry-perf` and
-> `scry-analytics` by hand (Steps 2 and 3) until the plugin catches up.
+The plugin is versioned in lockstep with the libraries, so the `version "0.4.0"` above is also the
+library version it wires — you rarely need to set `version` in the `scry` block at all.
 
 Apply it **after** the Android application or library plugin: it needs the `debugImplementation`
 and `releaseImplementation` configurations to already exist. If they don't, it logs a warning and
@@ -267,7 +264,7 @@ adds nothing, rather than half-wiring the build.
 
 | Setting | Default | Notes |
 |---|---|---|
-| `modules` | `NETWORK_OKHTTP` | `NETWORK_KTOR`, `NETWORK_OKHTTP`, `PREFS`, `DATABASE`, `CRASH` |
+| `modules` | `NETWORK_OKHTTP` | `NETWORK_KTOR`, `NETWORK_OKHTTP`, `PREFS`, `DATABASE`, `CRASH`, `PERF`, `ANALYTICS` |
 | `version` | the plugin's version | override only if you need to pin the libraries separately |
 | `enabled` | `true` | `false` adds no dependencies — useful for a staged rollout |
 | `failOnReleaseLeak` | `true` | `false` drops the release-leak check |
@@ -954,7 +951,7 @@ tray, shortcut, shake), export from every screen (HAR, cURL, JSON, CSV, text),
 per-screen clear/delete, no-op + parity gate, Gradle plugin, Android + desktop + iOS.
 
 **Published:** `0.4.0` on Maven Central, signed, across Android, JVM desktop and iOS · the Gradle
-plugin at `0.1.0` on the
+plugin at `0.4.0` on the
 [Gradle Plugin Portal](https://plugins.gradle.org/plugin/io.github.akhilesh2491.scry).
 
 ---

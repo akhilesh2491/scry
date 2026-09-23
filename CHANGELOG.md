@@ -44,6 +44,16 @@ with the caveat stated in the README: the API is expected to move before 1.0.
   rules as request bodies.
 - `ScryModule.ANALYTICS` in the Gradle plugin.
 
+### Gradle plugin
+
+- The plugin moves from `0.1.0` straight to **`0.4.0`** and is versioned in lockstep with the
+  libraries from now on. It defaults `scry { version }` to its own version, so a plugin left
+  behind on `0.1.0` quietly wired `0.1.0` libraries into an otherwise current build — the README
+  had to carry a workaround telling people to override it by hand. Lockstep removes the failure
+  mode instead of documenting it.
+- `ScryModule.PERF` and `ScryModule.ANALYTICS` are now reachable from a published plugin, so
+  `scry-perf` and `scry-analytics` no longer need wiring by hand.
+
 ### Changed
 
 - `ScryDesktopWindow` is now an extension on `ApplicationScope`, which is where a Compose tray icon
